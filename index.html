@@ -295,33 +295,22 @@ select option{background:var(--ink2);}
 .tl-btn:disabled{background:var(--ink3);color:var(--t3);box-shadow:none;cursor:not-allowed;}
 .tl-btn.loading{background:linear-gradient(135deg,#6d28d9 0%,#4c1d95 100%);box-shadow:0 6px 28px rgba(109,40,217,.35);}
 
-/* TTS PLAYER BAR */
+/* TTS PLAYER BAR — อยู่ใน Chapter Reader เท่านั้น */
 .tts-bar{
-  position:fixed;bottom:60px;left:0;right:0;z-index:1200;
-  max-width:500px;margin:0 auto;
-  background:var(--ink2);border:1px solid var(--line2);
-  border-radius:var(--r2) var(--r2) 0 0;
-  box-shadow:0 -4px 32px rgba(0,0,0,.5);
-  padding:0;overflow:hidden;
-  transform:translateY(110%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  flex-shrink:0;
+  background:var(--ink2);border-top:1px solid var(--line2);
+  display:none; /* hidden by default, shown via .on */
 }
-.tts-bar.on{transform:translateY(0);}
-/* Inside chapter reader, dock to bottom of reader */
-.ch-reader .tts-bar{
-  position:sticky;bottom:0;z-index:10;
-  border-radius:0;transform:none!important;
-  box-shadow:0 -2px 12px rgba(0,0,0,.4);
-  max-width:100%;
-}
+.tts-bar.on{ display:block; }
 
 .tts-prog-wrap{height:3px;background:var(--line);cursor:pointer;}
-.tts-prog{height:100%;background:linear-gradient(90deg,var(--red),var(--amber));width:0%;transition:width .3s linear;}
+.tts-prog{height:100%;background:linear-gradient(90deg,var(--red),var(--amber));width:0%;transition:width .25s linear;}
 
 .tts-main{display:flex;align-items:center;gap:10px;padding:10px 14px;}
 .tts-info{flex:1;min-width:0;}
 .tts-pg{font-family:var(--fM);font-size:10px;color:var(--t3);letter-spacing:1px;}
 .tts-line{
-  font-size:13px;color:var(--t1);line-height:1.5;
+  font-size:12px;color:var(--t1);line-height:1.4;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   margin-top:2px;
 }
@@ -329,29 +318,26 @@ select option{background:var(--ink2);}
 
 .tts-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 .tts-btn{
-  width:34px;height:34px;background:var(--ink3);border:1px solid var(--line2);
-  border-radius:50%;color:var(--t1);font-size:15px;cursor:pointer;
+  width:32px;height:32px;background:var(--ink3);border:1px solid var(--line2);
+  border-radius:50%;color:var(--t1);font-size:14px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;transition:all .2s;
 }
 .tts-btn:hover{background:var(--ink4);border-color:var(--red);}
 .tts-btn.play{
-  width:40px;height:40px;font-size:17px;
+  width:38px;height:38px;font-size:16px;
   background:var(--red);border-color:var(--red);color:#fff;
-  box-shadow:0 2px 12px var(--redGlow);
+  box-shadow:0 2px 10px var(--redGlow);
 }
 .tts-btn.play:hover{background:#c4121f;}
-.tts-btn.play.paused{background:var(--jade);border-color:var(--jade);box-shadow:0 2px 12px rgba(0,200,150,.4);}
-
+.tts-btn.pause-state{background:var(--jade);border-color:var(--jade);box-shadow:0 2px 10px rgba(0,200,150,.4);}
 .tts-speed{
   background:var(--ink3);border:1px solid var(--line2);border-radius:var(--r);
   color:var(--t1);font-family:var(--fM);font-size:10px;
   padding:4px 6px;cursor:pointer;
 }
-
 .tts-highlight{
-  background:rgba(0,200,150,.18)!important;
-  border-left:3px solid var(--jade);
-  transition:background .2s;
+  background:rgba(0,200,150,.15)!important;
+  border-left:3px solid var(--jade)!important;
 }
 .toggle-switch{position:relative;display:inline-block;cursor:pointer;flex-shrink:0;}
 .toggle-switch input{display:none;}
@@ -962,17 +948,16 @@ select option{background:var(--ink2);}
     </div>
   </div>
   <div class="ch-reader-scroll cr-stack" id="chReaderScroll"></div>
-
-  <!-- TTS bar docked inside reader -->
+  <!-- TTS bar docked at bottom of reader -->
   <div class="tts-bar" id="ttsBarReader">
-    <div class="tts-prog-wrap" onclick="ttsSeek(event,'reader')"><div class="tts-prog" id="ttsProgReader"></div></div>
+    <div class="tts-prog-wrap" onclick="ttsSeek(event)"><div class="tts-prog" id="ttsProgReader"></div></div>
     <div class="tts-main">
       <div class="tts-info">
         <div class="tts-pg" id="ttsPgReader">หน้า — / —</div>
         <div class="tts-line" id="ttsLineReader">กด 🔊 เพื่อเริ่มอ่าน</div>
       </div>
       <div class="tts-controls">
-        <select class="tts-speed" id="ttsSpeedReader" onchange="ttsSetSpeed(this.value)">
+        <select class="tts-speed" id="ttsSpeedSel" onchange="ttsSetSpeed(this.value)">
           <option value="0.8">0.8×</option>
           <option value="1.0" selected>1.0×</option>
           <option value="1.25">1.25×</option>
@@ -983,32 +968,8 @@ select option{background:var(--ink2);}
         <button class="tts-btn" onclick="ttsSkip(-1)" title="หน้าก่อนหน้า">⏮</button>
         <button class="tts-btn play" id="ttsPlayBtn" onclick="ttsPlayPause()">▶</button>
         <button class="tts-btn" onclick="ttsSkip(1)" title="หน้าถัดไป">⏭</button>
-        <button class="tts-btn" onclick="ttsStop()" title="หยุด">⏹</button>
+        <button class="tts-btn" onclick="ttsStop()" title="หยุด" style="font-size:12px;">⏹</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- TTS FLOATING BAR (for history page) -->
-<div class="tts-bar" id="ttsBarFloat">
-  <div class="tts-prog-wrap" onclick="ttsSeek(event,'float')"><div class="tts-prog" id="ttsProgFloat"></div></div>
-  <div class="tts-main">
-    <div class="tts-info">
-      <div class="tts-pg" id="ttsPgFloat">—</div>
-      <div class="tts-line" id="ttsLineFloat">—</div>
-    </div>
-    <div class="tts-controls">
-      <select class="tts-speed" id="ttsSpeedFloat" onchange="ttsSetSpeed(this.value)">
-        <option value="0.8">0.8×</option>
-        <option value="1.0" selected>1.0×</option>
-        <option value="1.25">1.25×</option>
-        <option value="1.5">1.5×</option>
-        <option value="2.0">2.0×</option>
-      </select>
-      <button class="tts-btn" onclick="ttsSkip(-1)">⏮</button>
-      <button class="tts-btn play" id="ttsPlayBtnF" onclick="ttsPlayPause()">▶</button>
-      <button class="tts-btn" onclick="ttsSkip(1)">⏭</button>
-      <button class="tts-btn" onclick="ttsStop()">⏹</button>
     </div>
   </div>
 </div>
@@ -2157,66 +2118,39 @@ function isDarkColor(hex) {
 
 /* ════════════════════════════════════════════
    TTS ENGINE — Web Speech API
+   อยู่ใน Chapter Reader เท่านั้น
    ════════════════════════════════════════════ */
 const TTS = {
-  synth: window.speechSynthesis || null,
-  voices: [],
-  rate: 1.0,
-  // Current playlist
-  pages: [],      // [{pageNum, text}]
-  pi: 0,          // current page index in playlist
-  lines: [],      // sentences of current page
-  li: 0,          // current line index
-  utt: null,      // current SpeechSynthesisUtterance
+  synth:   window.speechSynthesis || null,
+  voices:  [],
+  rate:    1.0,
+  pages:   [],    // [{pageNum, text}]
+  pi:      0,     // page index
+  lines:   [],    // sentences of current page
+  li:      0,     // line index
   playing: false,
-  paused: false,
-  mode: 'reader', // 'reader' | 'float'
-  lang: 'th-TH',
+  paused:  false,
+  lang:    'th-TH',
 };
 
-// Lang code map
-const TTS_LANG = {
-  th:'th-TH', en:'en-US', ja:'ja-JP',
-  zh:'zh-CN', 'zh-TW':'zh-TW', ko:'ko-KR',
-};
+const TTS_LANG = { th:'th-TH', en:'en-US', ja:'ja-JP', zh:'zh-CN', 'zh-TW':'zh-TW', ko:'ko-KR' };
 
 function ttsInit() {
-  if (!TTS.synth) { toast('เบราว์เซอร์นี้ไม่รองรับ TTS', 'err'); return false; }
-  // Load voices (async on Chrome)
+  if (!TTS.synth) { toast('เบราว์เซอร์ไม่รองรับ TTS', 'err'); return false; }
   const load = () => { TTS.voices = TTS.synth.getVoices(); };
   load();
-  TTS.synth.onvoiceschanged = load;
+  if (TTS.synth.onvoiceschanged !== undefined) TTS.synth.onvoiceschanged = load;
   return true;
 }
 
 function ttsBestVoice(lang) {
-  const voices = TTS.voices;
-  // Exact match
-  let v = voices.find(v => v.lang === lang);
-  if (v) return v;
-  // Prefix match (e.g. th-TH → th)
-  const prefix = lang.split('-')[0];
-  v = voices.find(v => v.lang.startsWith(prefix));
-  if (v) return v;
-  return null;
-}
-
-/* ── Build playlist from session ── */
-function ttsBuildPlaylist(si, startPi = 0) {
-  const session = S.history[si];
-  if (!session?.pages?.length) return false;
-  TTS.pages = session.pages.map(p => ({
-    pageNum: p.pageNum,
-    text: ttsCleanText(p.result || ''),
-  })).filter(p => p.text.trim());
-  TTS.pi = Math.max(0, TTS.pages.findIndex((_, i) => i >= startPi));
-  TTS.lang = TTS_LANG[session.tgt || 'th'] || 'th-TH';
-  return TTS.pages.length > 0;
+  let v = TTS.voices.find(v => v.lang === lang);
+  if (!v) v = TTS.voices.find(v => v.lang.startsWith(lang.split('-')[0]));
+  return v || null;
 }
 
 function ttsCleanText(raw) {
-  // Remove label prefixes like [bubble 1]:, [บอลลูน 2]:, === หน้า N ===, — หน้า N —
-  return raw
+  return (raw || '')
     .replace(/===.*?===/g, '')
     .replace(/—\s*หน้า\s*\d+[^—]*—/g, '')
     .replace(/\[bubble\s*\d+\]:\s*/gi, '')
@@ -2228,34 +2162,42 @@ function ttsCleanText(raw) {
 }
 
 function ttsSplitSentences(text) {
-  // Split on sentence-ending punctuation, keeping delimiter
-  return text
-    .split(/(?<=[.!?。！？\n])\s*/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
+  return text.split(/(?<=[.!?。！？\n])\s+/)
+    .map(s => s.trim()).filter(s => s.length > 0);
 }
 
-/* ── Play controls ── */
-function ttsReadSession(si, startPi = 0) {
+/* ── Start reading a session ── */
+function ttsReadSession(si) {
   if (!ttsInit()) return;
+  const session = S.history[si];
+  if (!session?.pages?.length) { toast('ไม่มีข้อความ', 'err'); return; }
+
   ttsStop();
-  if (!ttsBuildPlaylist(si, startPi)) { toast('ไม่มีข้อความสำหรับอ่าน', 'err'); return; }
-  TTS.mode = 'float';
-  document.getElementById('ttsBarFloat').classList.add('on');
+  TTS.lang  = TTS_LANG[session.tgt || 'th'] || 'th-TH';
+  TTS.pages = session.pages
+    .map(p => ({ pageNum: p.pageNum, text: ttsCleanText(p.result) }))
+    .filter(p => p.text);
+  if (!TTS.pages.length) { toast('ไม่มีข้อความสำหรับอ่าน', 'err'); return; }
+
+  // Open chapter reader at page 0, then start TTS
+  openChReader(si, 0);
+  TTS.pi = 0;
   ttsStartPage();
 }
 
 function ttsToggleReader() {
   if (!ttsInit()) return;
-  if (TTS.playing && TTS.mode === 'reader') { ttsPlayPause(); return; }
-  const si = _cr.si;
-  const session = S.history[si];
-  if (!session) return;
+  if (TTS.playing || TTS.paused) { ttsPlayPause(); return; }
+  // Build from current reader session
+  const session = S.history[_cr.si];
+  if (!session?.pages?.length) return;
   ttsStop();
-  if (!ttsBuildPlaylist(si, _cr.pi)) { toast('ไม่มีข้อความสำหรับอ่าน', 'err'); return; }
-  TTS.mode = 'reader';
-  document.getElementById('ttsBarReader').classList.add('on');
-  document.getElementById('ttsReaderBtn').style.color = 'var(--jade)';
+  TTS.lang  = TTS_LANG[session.tgt || 'th'] || 'th-TH';
+  TTS.pages = session.pages
+    .map(p => ({ pageNum: p.pageNum, text: ttsCleanText(p.result) }))
+    .filter(p => p.text);
+  if (!TTS.pages.length) { toast('ไม่มีข้อความ', 'err'); return; }
+  TTS.pi = Math.max(0, _cr.pi);
   ttsStartPage();
 }
 
@@ -2263,35 +2205,33 @@ function ttsStartPage() {
   if (TTS.pi >= TTS.pages.length) { ttsStop(); return; }
   const page = TTS.pages[TTS.pi];
   TTS.lines = ttsSplitSentences(page.text);
+  if (!TTS.lines.length) { TTS.pi++; ttsStartPage(); return; }
   TTS.li = 0;
-  ttsUpdateUI();
+  document.getElementById('ttsBarReader').classList.add('on');
+  ttsUpdateBar();
   ttsSpeak();
 }
 
 function ttsSpeak() {
-  if (!TTS.synth) return;
-  if (TTS.li >= TTS.lines.length) {
-    // Next page
+  if (!TTS.synth || TTS.li >= TTS.lines.length) {
     TTS.pi++;
     ttsStartPage();
     return;
   }
-
   const line = TTS.lines[TTS.li];
-  ttsHighlightLine(line);
+  ttsHighlight();
 
   const utt = new SpeechSynthesisUtterance(line);
   utt.lang  = TTS.lang;
   utt.rate  = TTS.rate;
   utt.pitch = 1.0;
-
   const voice = ttsBestVoice(TTS.lang);
   if (voice) utt.voice = voice;
 
   utt.onend = () => {
     if (!TTS.playing) return;
     TTS.li++;
-    ttsUpdateProgress();
+    ttsUpdateBar();
     ttsSpeak();
   };
   utt.onerror = (e) => {
@@ -2300,125 +2240,106 @@ function ttsSpeak() {
     ttsSpeak();
   };
 
-  TTS.utt = utt;
   TTS.playing = true;
-  TTS.paused = false;
+  TTS.paused  = false;
   TTS.synth.speak(utt);
   ttsUpdatePlayBtn();
 }
 
 function ttsPlayPause() {
   if (!TTS.synth) return;
-  if (!TTS.playing && !TTS.paused) {
-    // Not started yet — start
-    ttsToggleReader();
-    return;
-  }
+  if (!TTS.playing && !TTS.paused) { ttsToggleReader(); return; }
   if (TTS.paused) {
     TTS.synth.resume();
-    TTS.paused = false;
+    TTS.paused  = false;
     TTS.playing = true;
   } else {
     TTS.synth.pause();
-    TTS.paused = true;
+    TTS.paused  = true;
     TTS.playing = false;
   }
   ttsUpdatePlayBtn();
 }
 
 function ttsStop() {
-  if (TTS.synth) { TTS.synth.cancel(); }
-  TTS.playing = false;
-  TTS.paused  = false;
-  TTS.utt     = null;
+  if (TTS.synth) TTS.synth.cancel();
+  TTS.playing = TTS.paused = false;
   ttsClearHighlight();
-  document.getElementById('ttsBarFloat').classList.remove('on');
   document.getElementById('ttsBarReader').classList.remove('on');
   const btn = document.getElementById('ttsReaderBtn');
   if (btn) btn.style.color = '';
   ttsUpdatePlayBtn();
-  ttsUpdateProgress(0);
+  const prog = document.getElementById('ttsProgReader');
+  if (prog) prog.style.width = '0%';
 }
 
 function ttsSkip(dir) {
   TTS.synth?.cancel();
   TTS.pi = Math.max(0, Math.min(TTS.pages.length - 1, TTS.pi + dir));
-  TTS.li = 0;
   TTS.playing = true;
   ttsStartPage();
 }
 
 function ttsSetSpeed(val) {
   TTS.rate = parseFloat(val);
-  // Sync both selects
-  ['ttsSpeedReader','ttsSpeedFloat'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = val;
-  });
-  // Restart current utterance with new speed
-  if (TTS.playing) {
-    TTS.synth.cancel();
-    TTS.playing = true;
-    ttsSpeak();
-  }
+  const sel = document.getElementById('ttsSpeedSel');
+  if (sel) sel.value = val;
+  if (TTS.playing) { TTS.synth.cancel(); TTS.playing = true; ttsSpeak(); }
 }
 
-/* ── UI Updates ── */
-function ttsUpdateUI() {
-  const page = TTS.pages[TTS.pi];
+function ttsSeek(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  TTS.synth?.cancel();
+  TTS.pi = Math.floor(pct * TTS.pages.length);
+  TTS.li = 0;
+  TTS.playing = true;
+  ttsStartPage();
+}
+
+/* ── UI ── */
+function ttsUpdateBar() {
+  const page  = TTS.pages[TTS.pi];
+  const total = TTS.pages.length;
   if (!page) return;
-  const label = `หน้า ${page.pageNum} / ${TTS.pages[TTS.pages.length-1]?.pageNum}`;
-  const preview = TTS.lines[0]?.slice(0, 40) || '—';
-  ['Reader','Float'].forEach(s => {
-    const pg   = document.getElementById(`ttsPg${s}`);
-    const line = document.getElementById(`ttsLine${s}`);
-    if (pg)   pg.textContent   = label;
-    if (line) line.textContent = preview;
-  });
-  // Scroll reader to current page
-  if (TTS.mode === 'reader') {
-    const el = document.getElementById(`crpg-${TTS.pi}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
 
-function ttsUpdateProgress(override) {
-  const total = TTS.lines.length || 1;
-  const pct = override !== undefined
-    ? override
-    : ((TTS.li / total) * 100).toFixed(1);
-  ['Reader','Float'].forEach(s => {
-    const el = document.getElementById(`ttsProg${s}`);
-    if (el) el.style.width = pct + '%';
-  });
-  // Update current line display
-  const line = TTS.lines[TTS.li] || '';
-  ['Reader','Float'].forEach(s => {
-    const el = document.getElementById(`ttsLine${s}`);
-    if (el) { el.textContent = line.slice(0, 60) || '…'; el.classList.add('speaking'); }
-  });
+  const pg   = document.getElementById('ttsPgReader');
+  const line = document.getElementById('ttsLineReader');
+  const prog = document.getElementById('ttsProgReader');
+
+  if (pg)   pg.textContent   = `หน้า ${page.pageNum} / ${TTS.pages[total-1]?.pageNum}`;
+  if (line) { line.textContent = (TTS.lines[TTS.li] || '').slice(0, 60); line.className = 'tts-line speaking'; }
+  if (prog) prog.style.width  = ((TTS.pi / total) * 100).toFixed(1) + '%';
+
+  // Scroll reader to current page
+  const crpg = document.getElementById(`crpg-${TTS.pi}`);
+  if (crpg) crpg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  document.getElementById('ttsReaderBtn').style.color = 'var(--jade)';
 }
 
 function ttsUpdatePlayBtn() {
-  const playing = TTS.playing && !TTS.paused;
-  ['ttsPlayBtn','ttsPlayBtnF'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.textContent = TTS.paused ? '▶' : (TTS.playing ? '⏸' : '▶');
-    btn.classList.toggle('paused', TTS.paused);
-  });
+  const btn = document.getElementById('ttsPlayBtn');
+  if (!btn) return;
+  if (TTS.paused) {
+    btn.textContent = '▶'; btn.classList.remove('pause-state');
+  } else if (TTS.playing) {
+    btn.textContent = '⏸'; btn.classList.add('pause-state');
+  } else {
+    btn.textContent = '▶'; btn.classList.remove('pause-state');
+  }
 }
 
-/* ── Sentence Highlight ── */
 let _ttsHighEl = null;
-function ttsHighlightLine(line) {
+function ttsHighlight() {
   ttsClearHighlight();
   const scroll = document.getElementById('chReaderScroll');
-  if (!scroll || TTS.mode !== 'reader') return;
-  // Find paragraph element containing this text
+  if (!scroll) return;
   const els = scroll.querySelectorAll('.cr-page-txt');
+  const needle = (TTS.lines[TTS.li] || '').slice(0, 15);
+  if (!needle) return;
   for (const el of els) {
-    if (el.textContent.includes(line.slice(0, 20))) {
+    if (el.textContent.includes(needle)) {
       el.classList.add('tts-highlight');
       _ttsHighEl = el;
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2428,29 +2349,9 @@ function ttsHighlightLine(line) {
 }
 function ttsClearHighlight() {
   if (_ttsHighEl) { _ttsHighEl.classList.remove('tts-highlight'); _ttsHighEl = null; }
-  document.querySelectorAll('.tts-highlight').forEach(e => e.classList.remove('tts-highlight'));
 }
 
-function ttsSeek(e, mode) {
-  const rect = e.currentTarget.getBoundingClientRect();
-  const pct  = (e.clientX - rect.left) / rect.width;
-  const idx  = Math.floor(pct * TTS.pages.length);
-  TTS.synth?.cancel();
-  TTS.pi = Math.max(0, Math.min(TTS.pages.length - 1, idx));
-  TTS.li = 0;
-  TTS.playing = true;
-  ttsStartPage();
-}
-
-// Stop TTS when closing reader
-const _origCloseChReader = closeChReader;
-closeChReader = function() {
-  if (TTS.mode === 'reader') ttsStop();
-  _origCloseChReader();
-};
-
-// Init on load
-document.addEventListener('DOMContentLoaded', () => { ttsInit(); });
+document.addEventListener('DOMContentLoaded', ttsInit);
   document.getElementById('overlay').classList.toggle('on', on);
   const btn = document.getElementById('tlBtn');
   btn.disabled = on; btn.classList.toggle('loading', on);
@@ -2570,6 +2471,7 @@ function toggleChOverlay() {
 }
 
 function closeChReader() {
+  ttsStop();
   document.getElementById('chReader').classList.remove('on');
 }
 
