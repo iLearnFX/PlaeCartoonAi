@@ -468,10 +468,22 @@ select option{background:var(--ink2);}
 
         <!-- WEB SCRAPE -->
         <div class="mpanel" id="mp-web">
+          <!-- kingofshojo Quick Generator -->
+          <div style="background:rgba(232,25,44,.06);border:1px solid rgba(232,25,44,.25);border-radius:var(--r);padding:11px 13px;display:flex;flex-direction:column;gap:8px;">
+            <div style="font-family:var(--fM);font-size:10px;color:var(--red);letter-spacing:1.5px;text-transform:uppercase;">⚡ kingofshojo.com — Auto Generator</div>
+            <div class="row" style="gap:8px;">
+              <input type="text" id="kosUrl" placeholder="https://kingofshojo.com/magic-emperor-chapter-830/" style="flex:1;">
+              <button class="ibtn red" onclick="genKingOfShojo()" style="flex:0 0 auto;padding:10px 14px;white-space:nowrap;">🎯 Generate</button>
+            </div>
+            <div style="font-size:11px;color:var(--t2);line-height:1.5;">
+              วาง URL หน้าบทของ kingofshojo → สร้าง URL รูปทุกหน้าอัตโนมัติ ไม่ต้องใช้ Proxy
+            </div>
+          </div>
+          <!-- General Scraper -->
           <div class="field">
-            <label class="flabel">URL หน้าการ์ตูน</label>
+            <label class="flabel">URL หน้าการ์ตูน (เว็บอื่น)</label>
             <div class="row">
-              <input type="text" id="webUrl" placeholder="https://kingofshojo.com/magic-emperor-chapter-830/">
+              <input type="text" id="webUrl" placeholder="https://example.com/manga/chapter-1/">
               <button class="ibtn red" onclick="scrapeWeb()" style="flex:0 0 auto;padding:10px 14px;">🔍 ดูด</button>
             </div>
           </div>
@@ -480,7 +492,6 @@ select option{background:var(--ink2);}
             <input type="text" id="cssSelector" placeholder="#readerarea img, .reading-content img">
           </div>
           <div class="hint">
-            <b>✅ kingofshojo.com</b> — ดึงรูปจาก <code>cdn.kingofshojo.com</code> ได้โดยตรง<br>
             <b>⚠️ CORS block:</b> ตั้งค่า → ใส่ Proxy เช่น <code>https://corsproxy.io/?</code>
           </div>
           <div id="scrapeResult"></div>
@@ -887,6 +898,109 @@ async function addUrlImages() {
   toast(`เพิ่ม ${urls.length} รูป ✓`, 'ok');
 }
 
+/* ── KINGOFSHOJO AUTO GENERATOR ── */
+async function genKingOfShojo() {
+  const url = document.getElementById('kosUrl').value.trim();
+  if (!url) { toast('ใส่ URL ก่อน', 'err'); return; }
+
+  const m = url.match(/kingofshojo\.com\/(.+?)-chapter-(\d+)/i);
+  if (!m) { toast('URL ไม่ถูกรูปแบบ — ต้องเป็น kingofshojo.com/...chapter-NNN/', 'err'); return; }
+
+  const chapterNum = m[2]; // keep as string to preserve leading zeros if any
+  const proxies = getProxyList();
+  let mangaId = null;
+
+  toast(`⏳ กำลังค้นหา Manga ID สำหรับ chapter ${chapterNum}…`, 'inf');
+
+  // Try fetching page HTML via proxy to find manga_id from CDN URLs in script tags
+  for (const proxy of [null, ...proxies]) {
+    try {
+      const fetchUrl = proxy ? proxy + encodeURIComponent(url) : url;
+      const r = await fetch(fetchUrl, {
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!r.ok) continue;
+      const html = await r.text();
+
+      // Look for CDN pattern: /king-bucket/{id}/{chapter}/
+      const cdnMatch = html.match(/king-bucket\/(\d+)\//);
+      if (cdnMatch) { mangaId = cdnMatch[1]; break; }
+
+      // Look for JSON data with manga_id
+      const jsonMatch = html.match(/"manga_id"\s*:\s*"?(\d+)"?/)
+                     || html.match(/manga_id['":\s]+(\d+)/);
+      if (jsonMatch) { mangaId = jsonMatch[1]; break; }
+
+    } catch(e) {}
+  }
+
+  if (!mangaId) {
+    const manualId = prompt(
+      `ไม่พบ Manga ID อัตโนมัติ\n\n` +
+      `วิธีหา Manga ID:\n` +
+      `1. เปิดหน้าการ์ตูนใน Chrome\n` +
+      `2. กด F12 → แท็บ Network\n` +
+      `3. รีโหลดหน้า → ดู URL รูปที่มีรูปแบบ:\n` +
+      `   cdn.kingofshojo.com/king-bucket/{MANGA_ID}/\n\n` +
+      `ใส่ MANGA_ID ที่นี่:`
+    );
+    if (!manualId?.trim()) { toast('ยกเลิก', 'err'); return; }
+    mangaId = manualId.trim();
+  }
+
+  toast(`✓ Manga ID: ${mangaId} — กำลังตรวจสอบรูป…`, 'ok');
+
+  // Generate URLs for pages 1-60 then probe in parallel batches of 10
+  const baseUrl = `https://cdn.kingofshojo.com/king-bucket/${mangaId}/${chapterNum}`;
+  const proxy = getProxy() || proxies[0] || '';
+  const imgs = [];
+
+  // Probe in batches of 10
+  const BATCH = 10;
+  let keepGoing = true;
+  for (let start = 1; start <= 60 && keepGoing; start += BATCH) {
+    const batch = Array.from({ length: BATCH }, (_, i) => start + i);
+    const results = await Promise.all(batch.map(async (page) => {
+      const imgUrl = `${baseUrl}/ch_${chapterNum}_${page}.jpg`;
+      // Try via proxy first (avoids CORS + hotlink block)
+      const checkUrl = proxy ? proxy + encodeURIComponent(imgUrl) : imgUrl;
+      try {
+        const r = await fetch(checkUrl, {
+          method: 'GET',
+          signal: AbortSignal.timeout(6000),
+        });
+        // 200 = exists, 403 = hotlink blocked but exists, 404 = doesn't exist
+        if (r.ok || r.status === 403) return { page, url: imgUrl, ok: true };
+      } catch(e) {}
+      return { page, url: imgUrl, ok: false };
+    }));
+
+    for (const res of results) {
+      if (res.ok) {
+        imgs.push(res.url);
+      } else if (res.page > 1) {
+        keepGoing = false; // First miss after page 1 → stop probing
+        break;
+      }
+    }
+    // If entire batch was empty and we're past page 1, stop
+    if (results.every(r => !r.ok) && start > 1) keepGoing = false;
+  }
+
+  if (!imgs.length) {
+    toast('ไม่พบรูป — Manga ID อาจผิด หรือ CDN เปลี่ยน pattern', 'err');
+    // Offer manual URL mode
+    document.getElementById('urlInput').value =
+      `${baseUrl}/ch_${chapterNum}_1.jpg\n${baseUrl}/ch_${chapterNum}_2.jpg\n${baseUrl}/ch_${chapterNum}_3.jpg`;
+    switchMode('url');
+    toast('💡 ลองใส่ URL ตรงในโหมด URL แทน', 'inf');
+    return;
+  }
+
+  showPreview(imgs, 'scrapeResult', 'https://kingofshojo.com/');
+  toast(`พบ ${imgs.length} หน้า ✓ — เลือกแล้วกด "เพิ่ม"`, 'ok');
+}
+
 /* ── WEB SCRAPE ── */
 async function scrapeWeb() {
   const rawUrl = document.getElementById('webUrl').value.trim();
@@ -916,49 +1030,61 @@ async function scrapeWeb() {
 /* ── FETCH HTML (รองรับ 403 / CORS) ── */
 async function fetchHtml(url) {
   const proxy = getProxy();
+  const proxies = getProxyList();
 
-  // Headers ที่ทำให้เซิร์ฟเวอร์คิดว่าเป็นเบราว์เซอร์จริง
-  const browserHeaders = {
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8',
-    'Referer': new URL(url).origin + '/',
-  };
-
-  // 1) ลองตรงก่อน (บางเว็บไม่บล็อก)
+  // 1) ลองตรงก่อน
   try {
-    const r = await fetch(url, { headers: browserHeaders, signal: AbortSignal.timeout(8000) });
+    const r = await fetch(url, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
+        'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
     if (r.ok) return r.text();
   } catch(e) {}
 
-  // 2) ผ่าน Proxy
+  // 2) ผ่าน Proxy ที่ user กำหนด
   if (proxy) {
-    // corsproxy.io รองรับ x-requested-with เพื่อส่ง header ต้นทาง
-    const proxyUrl = proxy + encodeURIComponent(url);
-    const r = await fetch(proxyUrl, {
-      headers: {
-        'x-requested-with': 'XMLHttpRequest',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (r.ok) return r.text();
-    throw new Error(`HTTP ${r.status} — ลองเปลี่ยน Proxy ในตั้งค่า`);
+    try {
+      const r = await fetch(proxy + encodeURIComponent(url), {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) return r.text();
+    } catch(e) {}
   }
 
-  throw new Error('ไม่สามารถดึงได้ — ใส่ CORS Proxy ในตั้งค่า');
+  // 3) ลอง built-in proxy list
+  for (const p of proxies) {
+    if (p === proxy) continue;
+    try {
+      const r = await fetch(p + encodeURIComponent(url), {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) return r.text();
+    } catch(e) {}
+  }
+
+  throw new Error('ดึง HTML ไม่ได้ — ใส่ CORS Proxy ในตั้งค่า หรือลองเว็บอื่น');
 }
 
-/* ── FETCH รูปภาพเป็น Base64 (แก้ปัญหา 403 ตอนส่งให้ AI) ── */
+/* ── FETCH รูปภาพเป็น Base64 (แก้ปัญหา 403) ── */
 async function fetchImgAsBase64(imgUrl) {
   const proxy = getProxy();
+  const proxies = getProxyList();
+
+  // Determine correct Referer from CDN domain
+  let referer = 'https://kingofshojo.com/';
   try {
-    // ลองตรงก่อนด้วย Referrer ของเว็บต้นทาง
-    const referer = new URL(imgUrl).origin + '/';
+    const u = new URL(imgUrl);
+    if (u.hostname.includes('cdn.kingofshojo')) referer = 'https://kingofshojo.com/';
+    else referer = u.origin + '/';
+  } catch(e) {}
+
+  // 1) ลองตรงด้วย Referrer ที่ถูกต้อง
+  try {
     const r = await fetch(imgUrl, {
-      headers: {
-        'Referer': referer,
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
-      },
+      headers: { 'Referer': referer },
       signal: AbortSignal.timeout(15000),
     });
     if (r.ok) {
@@ -967,7 +1093,7 @@ async function fetchImgAsBase64(imgUrl) {
     }
   } catch(e) {}
 
-  // ผ่าน Proxy
+  // 2) ผ่าน proxy ที่ user กำหนดก่อน
   if (proxy) {
     try {
       const r = await fetch(proxy + encodeURIComponent(imgUrl), {
@@ -980,8 +1106,21 @@ async function fetchImgAsBase64(imgUrl) {
     } catch(e) {}
   }
 
-  // ถ้าดึงไม่ได้เลย ส่ง URL ตรง (ให้ AI ลองเอง)
-  return null;
+  // 3) ลอง built-in proxy list
+  for (const p of proxies) {
+    if (p === proxy) continue;
+    try {
+      const r = await fetch(p + encodeURIComponent(imgUrl), {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (r.ok) {
+        const blob = await r.blob();
+        return await blobToBase64(blob);
+      }
+    } catch(e) {}
+  }
+
+  return null; // ส่ง URL ตรง — ให้ AI ลองเอง
 }
 
 function blobToBase64(blob) {
@@ -995,6 +1134,18 @@ function blobToBase64(blob) {
 
 function getProxy() {
   return (document.getElementById('corsProxy')?.value.trim()) || S.corsProxy || '';
+}
+
+function getProxyList() {
+  const user = getProxy();
+  const builtIn = [
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url=',
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://thingproxy.freeboard.io/fetch/',
+  ];
+  // Put user proxy first, then built-ins (skip duplicates)
+  return [user, ...builtIn].filter((p, i, a) => p && a.indexOf(p) === i);
 }
 
 function extractImgs(html, pageUrl, selector) {
@@ -1013,7 +1164,9 @@ function extractImgs(html, pageUrl, selector) {
       }))
       .filter(({ src, alt, cls }) => {
         if (!src || src.startsWith('data:')) return false;
-        if (/logo|icon|avatar|banner|ad|rating|star|close|menu/i.test(src + alt + cls)) return false;
+        // Only filter UI elements by alt/class, NOT by URL keywords
+        // (CDN image URLs may contain words like 'banner' legitimately)
+        if (/\b(logo|icon|avatar|rating|star)\b/i.test(alt + ' ' + cls)) return false;
         return /\.(jpe?g|png|webp)/i.test(src);
       })
       .map(x => x.src);
@@ -1085,18 +1238,69 @@ async function fetchMangaDex() {
   const input = document.getElementById('mdxInput').value.trim();
   if (!input) { toast('ใส่ URL/ID ก่อน', 'err'); return; }
   const m = input.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-  if (!m) { toast('ไม่พบ Chapter UUID', 'err'); return; }
+  if (!m) { toast('ไม่พบ Chapter UUID ใน URL', 'err'); return; }
+
+  const chapterId = m[0];
   toast('⏳ กำลังดึงจาก MangaDex API…', 'inf');
   document.getElementById('mdxResult').innerHTML = '';
+
+  // MangaDex API endpoints to try (direct + proxy fallbacks)
+  const apiUrl = `https://api.mangadex.org/at-home/server/${chapterId}`;
+  const proxies = getProxyList();
+  let data = null;
+
+  // 1) Try direct API call
   try {
-    const r = await fetch(`https://api.mangadex.org/at-home/server/${m[0]}`);
-    if (!r.ok) throw new Error(`MangaDex API ${r.status}`);
-    const data = await r.json();
-    const pages = data.chapter.data.map(p => `${data.baseUrl}/data/${data.chapter.hash}/${p}`);
-    // MangaDex CDN ไม่บล็อก hotlink → showPreview โดยตรง
-    showPreview(pages, 'mdxResult', 'https://mangadex.org/');
-    toast(`MangaDex: ${pages.length} หน้า ✓`, 'ok');
-  } catch(e) { toast('MangaDex Error: ' + e.message, 'err'); }
+    const r = await fetch(apiUrl, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (r.ok) data = await r.json();
+    else if (r.status === 404) { toast('ไม่พบ Chapter นี้ใน MangaDex', 'err'); return; }
+  } catch(e) {}
+
+  // 2) If direct fails, try through proxies
+  if (!data) {
+    for (const proxy of proxies) {
+      try {
+        const r = await fetch(proxy + encodeURIComponent(apiUrl), {
+          signal: AbortSignal.timeout(15000),
+        });
+        if (r.ok) {
+          const text = await r.text();
+          // allorigins wraps in {contents: "..."}
+          try {
+            const parsed = JSON.parse(text);
+            data = parsed.contents ? JSON.parse(parsed.contents) : parsed;
+            if (data?.result === 'ok') break;
+          } catch(e) {}
+        }
+      } catch(e) {}
+    }
+  }
+
+  if (!data || data.result !== 'ok') {
+    toast('MangaDex API ไม่ตอบสนอง — ลองใหม่อีกครั้ง', 'err');
+    return;
+  }
+
+  const baseUrl = data.baseUrl;
+  const hash    = data.chapter?.hash;
+  const files   = data.chapter?.data;
+  const dataSaverFiles = data.chapter?.dataSaver;
+
+  if (!hash || !files?.length) { toast('ไม่มีข้อมูล Chapter', 'err'); return; }
+
+  // Build full image URLs (prefer high-quality, fallback to dataSaver)
+  const pages = files.map(p => `${baseUrl}/data/${hash}/${p}`);
+
+  showPreview(pages, 'mdxResult', 'https://mangadex.org/');
+  toast(`MangaDex: ${pages.length} หน้า ✓`, 'ok');
+
+  // Pre-warn if CDN might 403 (some MangaDex nodes require Referer)
+  if (baseUrl.includes('uploads.mangadex.org') || baseUrl.includes('cmdxd98ubmh3ngambcan')) {
+    setTimeout(() => toast('💡 ถ้ารูปไม่โหลด ให้ใส่ CORS Proxy ในตั้งค่า', 'inf'), 2000);
+  }
 }
 
 /* ── FILE UPLOAD ── */
