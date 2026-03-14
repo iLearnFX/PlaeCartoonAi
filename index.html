@@ -295,6 +295,34 @@ select option{background:var(--ink2);}
 .tl-btn:disabled{background:var(--ink3);color:var(--t3);box-shadow:none;cursor:not-allowed;}
 .tl-btn.loading{background:linear-gradient(135deg,#6d28d9 0%,#4c1d95 100%);box-shadow:0 6px 28px rgba(109,40,217,.35);}
 
+/* TOGGLE SWITCH */
+.toggle-switch{position:relative;display:inline-block;cursor:pointer;flex-shrink:0;}
+.toggle-switch input{display:none;}
+.ts-track{
+  display:block;width:44px;height:24px;
+  background:var(--ink3);border:1px solid var(--line2);border-radius:999px;
+  transition:background .2s,border-color .2s;position:relative;
+}
+.toggle-switch input:checked ~ .ts-track{background:var(--jade);border-color:var(--jade);}
+.ts-thumb{
+  position:absolute;top:2px;left:2px;
+  width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);
+  transition:left .2s;
+}
+.toggle-switch input:checked ~ .ts-track .ts-thumb{left:22px;}
+
+/* OVERLAY CANVAS WRAPPER */
+.ov-wrap{position:relative;display:inline-block;width:100%;}
+.ov-wrap canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.ov-wrap img{display:block;width:100%;}
+.ov-badge{
+  position:absolute;top:6px;left:6px;z-index:2;
+  background:rgba(232,25,44,.85);color:#fff;
+  font-family:var(--fM);font-size:9px;padding:2px 6px;border-radius:4px;
+  pointer-events:none;
+}
+
 /* SAVE SETTINGS BUTTON */
 .save-btn{
   width:100%;padding:14px;
@@ -337,8 +365,79 @@ select option{background:var(--ink2);}
 
 /* SCRAPE GRID */
 .scrape-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px;}
-.s-thumb{aspect-ratio:2/3;object-fit:cover;border-radius:6px;border:2px solid var(--line2);cursor:pointer;transition:border-color .15s;display:block;width:100%;}
+.s-wrap{position:relative;aspect-ratio:2/3;}
+.s-thumb{aspect-ratio:2/3;object-fit:cover;border-radius:6px;border:2px solid var(--line2);cursor:pointer;transition:border-color .15s,opacity .15s;display:block;width:100%;height:100%;}
 .s-thumb.sel{border-color:var(--jade);}
+.s-thumb:not(.sel){opacity:.45;}
+.s-del{
+  position:absolute;top:3px;right:3px;
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(232,25,44,.9);border:none;
+  color:#fff;font-size:10px;line-height:1;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .15s;z-index:2;
+  box-shadow:0 1px 4px rgba(0,0,0,.5);
+}
+.s-wrap:hover .s-del{opacity:1;}
+/* On touch devices always show controls */
+@media (hover:none){.s-del,.s-sel-btn{opacity:1!important;}}
+.s-sel-btn{
+  position:absolute;bottom:3px;left:3px;
+  width:20px;height:20px;border-radius:50%;
+  background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.3);
+  color:rgba(255,255,255,.5);font-size:10px;font-weight:bold;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .15s, background .15s;z-index:2;
+}
+.s-wrap:hover .s-sel-btn{opacity:1;}
+.s-sel-btn.on{background:var(--jade);border-color:var(--jade);color:var(--ink);opacity:1;}
+.s-num{
+  position:absolute;bottom:3px;right:4px;
+  font-family:var(--fM);font-size:9px;color:#fff;
+  background:rgba(0,0,0,.55);border-radius:3px;
+  padding:1px 4px;pointer-events:none;
+}
+
+/* LIGHTBOX */
+.lb{
+  position:fixed;inset:0;z-index:1100;
+  background:rgba(0,0,0,.93);backdrop-filter:blur(12px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.lb.on{opacity:1;pointer-events:all;}
+.lb-img{
+  max-width:calc(100vw - 24px);
+  max-height:calc(100vh - 100px);
+  object-fit:contain;border-radius:8px;
+  box-shadow:0 8px 48px rgba(0,0,0,.7);
+}
+.lb-bar{
+  position:absolute;top:0;left:0;right:0;
+  padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);
+}
+.lb-title{font-family:var(--fM);font-size:11px;color:var(--t2);letter-spacing:1px;}
+.lb-close{
+  width:32px;height:32px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);border-radius:50%;
+  color:var(--t1);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.lb-close:hover{background:var(--red);}
+.lb-nav{
+  position:absolute;bottom:14px;
+  display:flex;gap:10px;
+}
+.lb-nbtn{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  border-radius:var(--r);color:var(--t1);font-size:13px;
+  padding:7px 18px;cursor:pointer;font-family:var(--fM);
+  transition:background .2s;
+}
+.lb-nbtn:hover{background:rgba(255,255,255,.2);}
+.lb-counter{font-family:var(--fM);font-size:11px;color:var(--t2);padding:8px 0;}
 
 /* OVERLAY */
 .overlay{position:fixed;inset:0;z-index:999;background:rgba(6,6,8,.92);backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;opacity:0;pointer-events:none;transition:opacity .3s;}
@@ -357,14 +456,116 @@ select option{background:var(--ink2);}
 @keyframes tUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes tOut{to{opacity:0;transform:translateY(-8px)}}
 
-/* HISTORY */
-.h-item{background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);padding:12px;cursor:pointer;transition:border-color .2s;display:flex;gap:11px;align-items:flex-start;}
-.h-item:hover{border-color:var(--red);}
-.h-thumb{width:54px;height:78px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--ink3);}
-.h-body{flex:1;overflow:hidden;}
-.h-src{font-family:var(--fM);font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.h-prev{font-size:12px;color:var(--t1);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.h-meta{font-size:10px;color:var(--t3);margin-top:5px;display:flex;gap:7px;flex-wrap:wrap;}
+/* HISTORY — SESSION GROUPS */
+.hg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;transition:border-color .2s;}
+.hg:hover{border-color:rgba(232,25,44,.4);}
+.hg-hdr{
+  display:flex;align-items:center;gap:10px;padding:12px 13px;cursor:pointer;
+  background:var(--ink2);
+}
+.hg-thumb-strip{
+  display:flex;gap:3px;flex-shrink:0;
+}
+.hg-thumb{width:32px;height:46px;object-fit:cover;border-radius:4px;background:var(--ink3);}
+.hg-info{flex:1;min-width:0;}
+.hg-title{
+  font-family:var(--fM);font-size:13px;font-weight:700;color:var(--t1);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:flex;align-items:center;gap:6px;
+}
+.hg-title-edit{
+  background:none;border:none;border-bottom:1px dashed var(--t3);
+  color:var(--t1);font-family:var(--fM);font-size:13px;font-weight:700;
+  width:100%;outline:none;padding:1px 2px;
+}
+.hg-title-edit:focus{border-bottom-color:var(--red);}
+.hg-meta{font-size:10px;color:var(--t3);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;}
+.hg-cnt{
+  flex-shrink:0;background:var(--red);color:#fff;
+  font-family:var(--fM);font-size:10px;padding:2px 8px;border-radius:999px;
+}
+
+.hg-pages{display:none;flex-direction:column;gap:0;border-top:1px solid var(--line);}
+.hg-pages.on{display:flex;}
+
+/* PAGE READER ROW */
+.hr-row{
+  display:flex;gap:0;border-bottom:1px solid var(--line);
+  cursor:pointer;transition:background .15s;
+}
+.hr-row:last-child{border-bottom:none;}
+.hr-row:hover{background:rgba(255,255,255,.02);}
+.hr-img-wrap{
+  flex-shrink:0;width:90px;
+  background:#000;position:relative;overflow:hidden;
+}
+.hr-img{width:100%;display:block;object-fit:cover;}
+.hr-pgnum{
+  position:absolute;bottom:4px;right:5px;
+  background:rgba(0,0,0,.7);color:#fff;
+  font-family:var(--fM);font-size:9px;padding:1px 5px;border-radius:3px;
+}
+.hr-txt{
+  flex:1;padding:10px 12px;min-width:0;
+  font-size:12px;color:var(--t1);line-height:1.7;
+  white-space:pre-wrap;word-break:break-word;
+  max-height:200px;overflow-y:auto;
+}
+.hr-txt::-webkit-scrollbar{width:3px;}
+.hr-txt::-webkit-scrollbar-thumb{background:var(--line2);}
+
+/* CHAPTER READER FULL */
+.ch-reader{
+  position:fixed;inset:0;z-index:1050;
+  background:var(--ink);
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.ch-reader.on{opacity:1;pointer-events:all;}
+.ch-reader-bar{
+  flex-shrink:0;display:flex;align-items:center;gap:8px;
+  padding:10px 14px;background:var(--ink2);border-bottom:1px solid var(--line);
+}
+.ch-reader-title{flex:1;font-family:var(--fM);font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ch-reader-close{
+  width:32px;height:32px;background:var(--ink3);border:1px solid var(--line);
+  border-radius:50%;color:var(--t1);font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .2s;
+}
+.ch-reader-close:hover{background:var(--red);}
+.ch-view-toggle{
+  display:flex;background:var(--ink3);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+}
+.ch-vbtn{
+  padding:5px 10px;background:none;border:none;
+  color:var(--t2);font-size:11px;cursor:pointer;transition:all .15s;
+}
+.ch-vbtn.on{background:var(--red);color:#fff;}
+.ch-reader-scroll{
+  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+
+/* VIEW: Stack (รูป + แปลซ้อน) */
+.cr-stack .cr-page{display:flex;flex-direction:column;border-bottom:1px solid var(--line);}
+.cr-stack .cr-page-img{width:100%;display:block;}
+.cr-stack .cr-page-txt{
+  padding:12px 14px;font-size:13px;color:var(--t1);line-height:1.8;
+  white-space:pre-wrap;background:var(--ink2);border-top:1px solid var(--line);
+}
+
+/* VIEW: Split (รูปซ้าย แปลขวา) */
+.cr-split .cr-page{
+  display:flex;border-bottom:1px solid var(--line);min-height:160px;
+}
+.cr-split .cr-page-img{width:45%;object-fit:contain;background:#000;display:block;flex-shrink:0;}
+.cr-split .cr-page-txt{
+  flex:1;padding:10px 12px;font-size:12px;color:var(--t1);line-height:1.7;
+  white-space:pre-wrap;overflow-y:auto;word-break:break-word;
+}
+.cr-pgnum{
+  font-family:var(--fM);font-size:9px;color:var(--t3);
+  display:block;margin-bottom:6px;
+}
 
 /* MODAL */
 .modal-bg{position:fixed;inset:0;z-index:900;background:rgba(6,6,8,.93);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
@@ -541,6 +742,17 @@ select option{background:var(--ink2);}
     <button class="tl-btn" id="tlBtn" onclick="startTranslation()">
       <span id="tlIcon">⚡</span><span id="tlText">แปลการ์ตูน</span>
     </button>
+    <!-- OVERLAY MODE TOGGLE -->
+    <div style="display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r2);padding:11px 14px;">
+      <div style="flex:1;">
+        <div style="font-family:var(--fM);font-size:11px;color:var(--t1);font-weight:700;">🖼️ Overlay Mode</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">วางข้อความไทยทับตำแหน่ง bubble ต้นฉบับ</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="overlayMode">
+        <span class="ts-track"><span class="ts-thumb"></span></span>
+      </label>
+    </div>
 
   </div>
 
@@ -666,11 +878,52 @@ select option{background:var(--ink2);}
   </div>
 </div>
 
+<!-- LIGHTBOX -->
+<div class="lb" id="lb" onclick="lbBgClick(event)">
+  <div class="lb-bar">
+    <span class="lb-title" id="lbTitle">รูปที่ 1 / 1</span>
+    <button class="lb-close" onclick="closeLb()">✕</button>
+  </div>
+  <img class="lb-img" id="lbImg" src="" alt="">
+  <div class="lb-nav">
+    <button class="lb-nbtn" onclick="lbMove(-1)">◀ ก่อนหน้า</button>
+    <span class="lb-counter" id="lbCounter"></span>
+    <button class="lb-nbtn" onclick="lbMove(1)">ถัดไป ▶</button>
+  </div>
+</div>
+
+<!-- CHAPTER READER -->
+<div class="ch-reader" id="chReader">
+  <div class="ch-reader-bar">
+    <button class="ch-reader-close" onclick="closeChReader()">✕</button>
+    <span class="ch-reader-title" id="chReaderTitle">ชื่อตอน</span>
+    <div class="ch-view-toggle">
+      <button class="ch-vbtn on" id="cvbStack" onclick="setChView('stack')">📜 ซ้อน</button>
+      <button class="ch-vbtn"    id="cvbSplit" onclick="setChView('split')">⬛ Split</button>
+    </div>
+  </div>
+  <div class="ch-reader-scroll cr-stack" id="chReaderScroll"></div>
+</div>
+
 <!-- ════════════════════════════════════════════
   JAVASCRIPT
 ════════════════════════════════════════════ -->
 <script>
 'use strict';
+
+// roundRect polyfill for older browsers
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    r = Math.min(r, w/2, h/2);
+    this.moveTo(x+r, y);
+    this.lineTo(x+w-r, y); this.arcTo(x+w,y, x+w,y+r, r);
+    this.lineTo(x+w, y+h-r); this.arcTo(x+w,y+h, x+w-r,y+h, r);
+    this.lineTo(x+r, y+h); this.arcTo(x,y+h, x,y+h-r, r);
+    this.lineTo(x, y+r); this.arcTo(x,y, x+r,y, r);
+    this.closePath();
+    return this;
+  };
+}
 
 /* ── MODELS ── */
 const MODELS = [
@@ -734,7 +987,27 @@ function loadStorage() {
     S.customModel = c.customModel || '';
     S.corsProxy   = c.corsProxy   || S.corsProxy;
     S.sysPrompt   = c.sysPrompt   || S.sysPrompt;
-    S.history     = JSON.parse(localStorage.getItem('plae_hist') || '[]');
+
+    let hist = JSON.parse(localStorage.getItem('plae_hist') || '[]');
+    // Migrate old flat format: each item had {id, thumb, src, result, model, tgt, time}
+    // New format: each item is a session {id, title, model, tgt, time, pages:[]}
+    if (hist.length && hist[0] && !hist[0].pages) {
+      // Group consecutive old items into one session
+      hist = [{
+        id: Date.now(),
+        title: 'ประวัติเก่า (migrated)',
+        model: hist[0].model || '',
+        tgt: hist[0].tgt || 'th',
+        time: hist[0].time || new Date().toISOString(),
+        pages: hist.map((h, i) => ({
+          pageNum: i + 1,
+          name: h.src || `หน้า ${i + 1}`,
+          thumb: h.thumb || '',
+          result: h.result || '',
+        })),
+      }];
+    }
+    S.history = hist;
 
     document.getElementById('apiKeyS').value  = S.apiKey;
     document.getElementById('corsProxy').value = S.corsProxy;
@@ -1182,33 +1455,130 @@ function extractImgs(html, pageUrl, selector) {
 
 function showPreview(imgs, cid, pageReferer) {
   const proxy = getProxy();
-  // ใช้ proxy สำหรับ preview ด้วย เพื่อป้องกัน 403
   const proxyImgSrc = (src) => proxy ? proxy + encodeURIComponent(src) : src;
 
+  // Store imgs list on the container element for lightbox access
   const area = document.getElementById(cid);
-  area.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <span style="font-family:var(--fM);font-size:11px;color:var(--t2);">พบ ${imgs.length} รูป</span>
-      <div style="display:flex;gap:6px;">
-        <button class="ibtn" style="font-size:10px;padding:3px 8px;" onclick="toggleAll('${cid}',true)">เลือกทั้งหมด</button>
-        <button class="ibtn" style="font-size:10px;padding:3px 8px;" onclick="toggleAll('${cid}',false)">ยกเลิก</button>
+  area._imgs = imgs.slice(); // keep a mutable copy for deletions
+
+  const renderGrid = () => {
+    const list = area._imgs;
+    area.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-family:var(--fM);font-size:11px;color:var(--t2);" id="sg-count-${cid}">${list.length} รูป</span>
+        <div style="display:flex;gap:6px;">
+          <button class="ibtn" style="font-size:10px;padding:3px 8px;" onclick="toggleAll('${cid}',true)">เลือกทั้งหมด</button>
+          <button class="ibtn" style="font-size:10px;padding:3px 8px;" onclick="toggleAll('${cid}',false)">ยกเลิก</button>
+        </div>
       </div>
-    </div>
-    <div class="scrape-grid" id="sg-${cid}">
-      ${imgs.map(s => `<img class="s-thumb sel"
-        data-src="${esc(s)}"
-        src="${esc(proxyImgSrc(s))}"
-        loading="lazy"
-        onerror="this.src='${esc(s)}';this.onerror=null;"
-        onclick="this.classList.toggle('sel')">`).join('')}
-    </div>
-    <div style="margin-top:10px;">
-      <button class="ibtn full red" onclick="addSelected('${cid}')">➕ เพิ่มรูปที่เลือกเข้าคิว</button>
-    </div>`;
+      <div class="scrape-grid" id="sg-${cid}">
+        ${list.map((s, i) => `
+          <div class="s-wrap">
+            <img class="s-thumb sel"
+              data-src="${esc(s)}"
+              data-idx="${i}"
+              src="${esc(proxyImgSrc(s))}"
+              loading="lazy"
+              onerror="this.src='${esc(s)}';this.onerror=null;"
+              onclick="openLb('${cid}', ${i})">
+            <button class="s-del" title="ลบรูปนี้" onclick="removeThumb('${cid}',${i})">✕</button>
+            <button class="s-sel-btn on" title="เลือก/ยกเลิก" onclick="toggleThumb(this)">✓</button>
+            <span class="s-num">${i + 1}</span>
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:10px;">
+        <button class="ibtn full red" onclick="addSelected('${cid}')">➕ เพิ่มรูปที่เลือกเข้าคิว</button>
+      </div>`;
+  };
+
+  area._renderGrid = renderGrid;
+  renderGrid();
+}
+
+/* ── THUMB DELETE ── */
+function removeThumb(cid, idx) {
+  const area = document.getElementById(cid);
+  if (!area._imgs) return;
+  area._imgs.splice(idx, 1);
+  if (!area._imgs.length) { area.innerHTML = ''; return; }
+  area._renderGrid();
+}
+
+/* ── LIGHTBOX ── */
+const _lb = { cid: '', idx: 0 };
+
+function openLb(cid, idx) {
+  const area = document.getElementById(cid);
+  if (!area?._imgs?.length) return;
+  _lb.cid = cid; _lb.idx = idx;
+  _lbRender();
+  document.getElementById('lb').classList.add('on');
+  // Swipe support
+  _lbSwipe();
+}
+
+function _lbRender() {
+  const area = document.getElementById(_lb.cid);
+  const imgs = area?._imgs || [];
+  if (!imgs.length) { closeLb(); return; }
+  _lb.idx = Math.max(0, Math.min(_lb.idx, imgs.length - 1));
+  const proxy = getProxy();
+  const src = imgs[_lb.idx];
+  const displaySrc = proxy ? proxy + encodeURIComponent(src) : src;
+  const img = document.getElementById('lbImg');
+  img.src = displaySrc;
+  img.onerror = () => { img.src = src; img.onerror = null; };
+  document.getElementById('lbTitle').textContent = `รูปที่ ${_lb.idx + 1} / ${imgs.length}`;
+  document.getElementById('lbCounter').textContent = `${_lb.idx + 1} / ${imgs.length}`;
+  // Sync thumb selection highlight
+  const thumb = document.querySelector(`#sg-${_lb.cid} [data-idx="${_lb.idx}"]`);
+  if (thumb) thumb.scrollIntoView({ block: 'nearest' });
+}
+
+function lbMove(dir) {
+  const area = document.getElementById(_lb.cid);
+  const len = area?._imgs?.length || 0;
+  _lb.idx = (_lb.idx + dir + len) % len;
+  _lbRender();
+}
+
+function closeLb() {
+  document.getElementById('lb').classList.remove('on');
+}
+
+function lbBgClick(e) {
+  if (e.target === document.getElementById('lb')) closeLb();
+}
+
+function _lbSwipe() {
+  const el = document.getElementById('lb');
+  let sx = 0;
+  el.ontouchstart = e => { sx = e.touches[0].clientX; };
+  el.ontouchend = e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 50) lbMove(dx < 0 ? 1 : -1);
+  };
+}
+
+// Keyboard nav
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('lb').classList.contains('on')) return;
+  if (e.key === 'ArrowRight') lbMove(1);
+  if (e.key === 'ArrowLeft')  lbMove(-1);
+  if (e.key === 'Escape')     closeLb();
+});
+
+function toggleThumb(btn) {
+  // Toggle the .sel class on the sibling img, and .on on the button
+  const wrap = btn.closest('.s-wrap');
+  const img = wrap.querySelector('.s-thumb');
+  const on = img.classList.toggle('sel');
+  btn.classList.toggle('on', on);
 }
 
 function toggleAll(cid, on) {
-  document.querySelectorAll(`#sg-${cid} .s-thumb`).forEach(el => el.classList.toggle('sel', on));
+  document.querySelectorAll(`#sg-${cid} .s-thumb`).forEach(img => img.classList.toggle('sel', on));
+  document.querySelectorAll(`#sg-${cid} .s-sel-btn`).forEach(btn => btn.classList.toggle('on', on));
 }
 
 async function addSelected(cid) {
@@ -1217,7 +1587,6 @@ async function addSelected(cid) {
 
   toast(`⏳ กำลังโหลด ${imgs.length} รูป…`, 'inf');
 
-  // แปลงเป็น base64 พร้อมกัน (สูงสุด 4 ขนาน)
   const CONCURRENCY = 4;
   for (let i = 0; i < imgs.length; i += CONCURRENCY) {
     const batch = imgs.slice(i, i + CONCURRENCY);
@@ -1230,7 +1599,9 @@ async function addSelected(cid) {
   }
 
   toast(`เพิ่ม ${imgs.length} รูปเข้าคิว ✓`, 'ok');
-  document.getElementById(cid).innerHTML = '';
+  const area = document.getElementById(cid);
+  area._imgs = [];
+  area.innerHTML = '';
 }
 
 /* ── MANGADEX ── */
@@ -1358,14 +1729,8 @@ function copyResult(id) {
 
 /* ── TRANSLATE ── */
 async function startTranslation() {
-  // Always read latest from settings inputs
   S.apiKey = document.getElementById('apiKeyS').value.trim();
-
-  if (!S.apiKey) {
-    toast('ต้องใส่ API Key ในตั้งค่าก่อน', 'err');
-    goPage('settings');
-    return;
-  }
+  if (!S.apiKey) { toast('ต้องใส่ API Key ในตั้งค่าก่อน', 'err'); goPage('settings'); return; }
   if (!S.queue.length) { toast('เพิ่มรูปเข้าคิวก่อน', 'err'); return; }
 
   const pending = S.queue.filter(i => i.status !== 'done');
@@ -1379,7 +1744,6 @@ async function startTranslation() {
   const tgt = document.getElementById('tgtLang').value;
   const src = document.getElementById('srcLang').value;
   const sys = document.getElementById('sysPrompt').value.trim() || S.sysPrompt;
-
   const LANGS = { th:'ภาษาไทย', en:'English', ja:'日本語', zh:'中文简体', 'zh-TW':'中文繁體', ko:'한국어', auto:'Auto-detected' };
   const tgtName = LANGS[tgt] || tgt;
   const srcHint = src !== 'auto' ? `Source: ${LANGS[src] || src}. ` : '';
@@ -1387,18 +1751,66 @@ async function startTranslation() {
   setLoading(true); setProgress(0);
   document.getElementById('qProg').style.display = 'block';
 
+  // Create a new session group for this translation run
+  const sessionId = Date.now();
+  const autoTitle = guessTitle(pending);
+  const session = {
+    id: sessionId,
+    title: autoTitle,
+    model: modelId,
+    tgt,
+    time: new Date().toISOString(),
+    pages: [], // { pageNum, name, thumb, result }
+  };
+
   let done = 0;
+  const isOverlay = document.getElementById('overlayMode')?.checked;
+
   for (const item of pending) {
     setOvStep(`[${done + 1}/${pending.length}] ${item.name}`);
     item.status = 'processing'; renderQueue();
     try {
-      item.result = await callAI(item, modelId, tgtName, srcHint, sys);
-      item.status = 'done';
-      S.history.unshift({ id: Date.now(), thumb: item.dataUrl || item.src, src: item.name, result: item.result, model: modelId, tgt, time: new Date().toISOString() });
+      if (isOverlay) {
+        // Overlay mode: get bubble positions + translations as JSON
+        const bubblesData = await callAI_overlay(item, modelId, tgtName, srcHint);
+        const textOnly = (bubblesData.bubbles || []).map((b, i) =>
+          `[bubble ${i+1}]: ${b.text}`
+        ).join('\n');
+        item.result = textOnly;
+        item.bubblesData = bubblesData; // store for canvas rendering
+        item.status = 'done';
+        session.pages.push({
+          pageNum: done + 1,
+          name: item.name,
+          thumb: item.dataUrl || item.src || '',
+          result: textOnly,
+          bubblesData,
+          isOverlay: true,
+        });
+      } else {
+        item.result = await callAI(item, modelId, tgtName, srcHint, sys);
+        item.status = 'done';
+        session.pages.push({
+          pageNum: done + 1,
+          name: item.name,
+          thumb: item.dataUrl || item.src || '',
+          result: item.result,
+        });
+      }
     } catch(e) {
       item.status = 'error'; item.error = e.message;
     }
     done++; setProgress(done / pending.length * 100); renderQueue();
+  }
+
+  // Sort pages by natural page number extracted from filename
+  session.pages.sort((a, b) => extractPageNum(a.name) - extractPageNum(b.name));
+  session.pages.forEach((p, i) => p.pageNum = i + 1);
+
+  if (session.pages.length) {
+    S.history.unshift(session);
+    // Keep max 30 sessions
+    S.history = S.history.slice(0, 30);
   }
 
   saveStorage(); setLoading(false);
@@ -1407,17 +1819,36 @@ async function startTranslation() {
   toast(`เสร็จ ${done}/${pending.length} รูป ✓`, 'ok');
 }
 
+function guessTitle(items) {
+  // Try to guess chapter title from filenames
+  // e.g. "ch_830_1.jpg" → "Chapter 830"
+  // e.g. "magic-emperor-ch-12-page-1.jpg" → auto extract
+  const name = items[0]?.name || '';
+  const chNum = name.match(/ch(?:apter)?[_\-\s]*(\d+)/i)
+             || name.match(/chapter[_\-\s]*(\d+)/i)
+             || name.match(/_(\d{2,4})_\d/);
+  if (chNum) return `Chapter ${chNum[1]}`;
+  // Try to extract from URL src
+  const src = items[0]?.src || '';
+  const urlCh = src.match(/chapter[_\-](\d+)/i) || src.match(/ch[_\-](\d+)/i);
+  if (urlCh) return `Chapter ${urlCh[1]}`;
+  return `Session ${new Date().toLocaleDateString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}`;
+}
+
+function extractPageNum(name) {
+  // Extract trailing number from filename for sorting
+  const m = name.match(/_(\d+)\.\w+$/) || name.match(/(\d+)\.\w+$/);
+  return m ? parseInt(m[1]) : 0;
+}
+
 async function callAI(item, modelId, tgtLang, srcHint, sysPrompt) {
   let imgUrl = (item.isFile || (item.dataUrl && item.dataUrl.startsWith('data:')))
-    ? item.dataUrl
-    : null;
-
-  // ถ้ายังไม่มี base64 → ดึงรูปผ่าน proxy แปลงเป็น base64 ก่อน
+    ? item.dataUrl : null;
   if (!imgUrl) {
     const externalUrl = item.src || item.dataUrl;
     if (!externalUrl) throw new Error('ไม่มี URL รูปภาพ');
     const b64 = await fetchImgAsBase64(externalUrl);
-    imgUrl = b64 || externalUrl; // fallback ใช้ URL ตรงถ้าดึงไม่ได้
+    imgUrl = b64 || externalUrl;
   }
 
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -1452,6 +1883,233 @@ async function callAI(item, modelId, tgtLang, srcHint, sysPrompt) {
   return content;
 }
 
+/* ══ OVERLAY AI CALL ══
+   Asks the AI to return JSON with bubble positions + translated text
+   Format: { bubbles: [{x, y, w, h, bg, text}, ...], imgW, imgH }
+   x,y,w,h = percentages 0-100 of image dimensions
+*/
+async function callAI_overlay(item, modelId, tgtLang, srcHint) {
+  let imgUrl = (item.isFile || (item.dataUrl && item.dataUrl.startsWith('data:')))
+    ? item.dataUrl : null;
+  if (!imgUrl) {
+    const externalUrl = item.src || item.dataUrl;
+    if (!externalUrl) throw new Error('ไม่มี URL');
+    const b64 = await fetchImgAsBase64(externalUrl);
+    imgUrl = b64 || externalUrl;
+  }
+
+  const overlayPrompt = `You are a manga OCR + translation engine. Analyze this manga/manhua/manhwa page image.
+
+Your task:
+1. Detect ALL text regions: speech bubbles, thought bubbles, SFX, captions, signs, narration boxes
+2. For each region, determine its bounding box as percentages of image dimensions
+3. Detect the background fill color of each bubble (usually white/cream)
+4. Translate the text to ${tgtLang}
+
+${srcHint}
+
+CRITICAL: Respond ONLY with valid JSON. No markdown, no explanation, no backticks.
+JSON format:
+{
+  "bubbles": [
+    {
+      "x": <left edge % 0-100>,
+      "y": <top edge % 0-100>,
+      "w": <width % 0-100>,
+      "h": <height % 0-100>,
+      "bg": "<fill color as hex, e.g. #ffffff>",
+      "shape": "<rect|round|cloud|thought>",
+      "originalText": "<original text>",
+      "text": "<translated text in ${tgtLang}>"
+    }
+  ]
+}
+
+Order bubbles top-to-bottom, left-to-right (reading order).
+If a region has no clear text, skip it.`;
+
+  const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${S.apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': location.origin,
+      'X-Title': 'Plae-Cartoon AI',
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { role: 'user', content: [
+          { type: 'image_url', image_url: { url: imgUrl } },
+          { type: 'text', text: overlayPrompt },
+        ]},
+      ],
+      max_tokens: 4000,
+      temperature: 0.1, // low temp for consistent JSON
+    }),
+    signal: AbortSignal.timeout(90000),
+  });
+
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API ${r.status}`);
+  }
+  const data = await r.json();
+  let raw = data.choices?.[0]?.message?.content || '';
+
+  // Strip markdown fences if present
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch(e) {
+    // Try to extract JSON object from response
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    else throw new Error('AI ส่ง JSON ไม่ถูกต้อง');
+  }
+  if (!parsed.bubbles) throw new Error('ไม่พบ bubbles ใน response');
+  return parsed;
+}
+
+/* ══ RENDER OVERLAY ON CANVAS ══
+   Takes an <img> element + bubble JSON + inserts a canvas overlay
+*/
+async function renderOverlayCanvas(imgEl, bubblesData) {
+  // Wait for image to load
+  await new Promise(res => {
+    if (imgEl.complete && imgEl.naturalWidth) res();
+    else { imgEl.onload = res; }
+  });
+
+  const iw = imgEl.naturalWidth  || imgEl.offsetWidth;
+  const ih = imgEl.naturalHeight || imgEl.offsetHeight;
+
+  // Wrap image in ov-wrap if not already
+  let wrap = imgEl.closest('.ov-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'ov-wrap';
+    imgEl.parentNode.insertBefore(wrap, imgEl);
+    wrap.appendChild(imgEl);
+  }
+
+  // Remove existing canvas
+  wrap.querySelectorAll('canvas.ov-canvas').forEach(c => c.remove());
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'ov-canvas';
+  canvas.width  = iw;
+  canvas.height = ih;
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+  wrap.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  const bubbles = bubblesData.bubbles || [];
+
+  for (const b of bubbles) {
+    const x = b.x / 100 * iw;
+    const y = b.y / 100 * ih;
+    const w = b.w / 100 * iw;
+    const h = b.h / 100 * ih;
+    const bg = b.bg || '#ffffff';
+    const radius = Math.min(w, h) * 0.15;
+
+    // Fill bubble background
+    ctx.save();
+    ctx.beginPath();
+    if (b.shape === 'round' || b.shape === 'cloud' || b.shape === 'thought') {
+      // Rounded rect for speech/thought bubbles
+      ctx.roundRect(x, y, w, h, radius);
+    } else {
+      ctx.roundRect(x, y, w, h, 4);
+    }
+    ctx.fillStyle = bg;
+    ctx.fill();
+
+    // Subtle border to blend
+    ctx.strokeStyle = bg === '#ffffff' || bg === '#fff' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // Draw translated text
+    const text = b.text || '';
+    if (!text) continue;
+
+    const padding = Math.max(4, w * 0.06);
+    const maxW = w - padding * 2;
+    const isDark = isDarkColor(bg);
+    ctx.fillStyle = isDark ? '#ffffff' : '#1a1a1a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Auto font size to fit bubble
+    let fontSize = Math.max(10, Math.min(18, h * 0.28));
+    let lines;
+    do {
+      ctx.font = `bold ${fontSize}px "Noto Sans Thai", sans-serif`;
+      lines = wrapText(ctx, text, maxW);
+      const totalH = lines.length * fontSize * 1.3;
+      if (totalH <= h - padding * 2 || fontSize <= 9) break;
+      fontSize -= 1;
+    } while (fontSize > 9);
+
+    ctx.font = `bold ${fontSize}px "Noto Sans Thai", sans-serif`;
+    const lineH = fontSize * 1.3;
+    const totalH = lines.length * lineH;
+    const startY = y + h / 2 - totalH / 2 + lineH / 2;
+
+    lines.forEach((line, li) => {
+      const ly = startY + li * lineH;
+      // Text shadow for readability
+      ctx.shadowColor = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 2;
+      ctx.fillText(line, x + w / 2, ly);
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  // Badge
+  let badge = wrap.querySelector('.ov-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'ov-badge';
+    badge.textContent = `✦ Overlay ${bubbles.length} bubble`;
+    wrap.appendChild(badge);
+  } else {
+    badge.textContent = `✦ Overlay ${bubbles.length} bubble`;
+  }
+}
+
+function wrapText(ctx, text, maxW) {
+  const words = text.split('');  // Thai doesn't have word spaces; split by char
+  // Better: try splitting by natural breaks first
+  const segments = text.match(/[^\s]{1,8}|\s+/g) || [text];
+  const lines = [];
+  let cur = '';
+  for (const seg of segments) {
+    const test = cur + seg;
+    if (ctx.measureText(test).width > maxW && cur) {
+      lines.push(cur.trim());
+      cur = seg;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur.trim()) lines.push(cur.trim());
+  return lines.length ? lines : [text];
+}
+
+function isDarkColor(hex) {
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2),16);
+  const g = parseInt(c.substr(2,2),16);
+  const b = parseInt(c.substr(4,2),16);
+  return (r*299 + g*587 + b*114) / 1000 < 128;
+}
+
 function setLoading(on) {
   document.getElementById('overlay').classList.toggle('on', on);
   const btn = document.getElementById('tlBtn');
@@ -1465,35 +2123,163 @@ function setProgress(pct) {
 }
 function setOvStep(msg) { document.getElementById('ovStep').textContent = msg; }
 
-/* ── HISTORY ── */
+/* ── HISTORY — SESSION GROUPED ── */
 function renderHistory() {
   const el = document.getElementById('historyList');
   if (!S.history.length) {
     el.innerHTML = '<div class="empty"><div class="e-ico">📭</div><div class="e-txt">ยังไม่มีประวัติ</div></div>';
     return;
   }
-  el.innerHTML = S.history.slice(0, 40).map((h, i) => `
-    <div class="h-item" onclick="openModal(${i})">
-      <img class="h-thumb" src="${esc(h.thumb || '')}" onerror="this.style.display='none'" loading="lazy">
-      <div class="h-body">
-        <div class="h-src">${esc(h.src || 'Image')}</div>
-        <div class="h-prev">${esc(h.result || '')}</div>
-        <div class="h-meta">
-          <span>🕒 ${new Date(h.time).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-          <span>🤖 ${esc((h.model || '').split('/').pop())}</span>
-          <span>→ ${esc(h.tgt || 'th')}</span>
+  el.innerHTML = S.history.map((session, si) => {
+    const thumbs = session.pages?.slice(0, 3).map(p =>
+      `<img class="hg-thumb" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">`
+    ).join('') || '';
+    const date = new Date(session.time).toLocaleDateString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    const pgCount = session.pages?.length || 0;
+    const modelShort = (session.model || '').split('/').pop();
+    return `
+    <div class="hg" id="hg-${si}">
+      <div class="hg-hdr" onclick="toggleSession(${si})">
+        <div class="hg-thumb-strip">${thumbs}</div>
+        <div class="hg-info">
+          <div class="hg-title">
+            <input class="hg-title-edit" id="hg-title-${si}"
+              value="${esc(session.title || 'ตอนที่ไม่รู้จัก')}"
+              onclick="event.stopPropagation()"
+              onchange="renameSession(${si}, this.value)"
+              onblur="renameSession(${si}, this.value)">
+          </div>
+          <div class="hg-meta">
+            <span>🕒 ${date}</span>
+            <span>🤖 ${esc(modelShort)}</span>
+            <span>→ ${esc(session.tgt || 'th')}</span>
+          </div>
+        </div>
+        <span class="hg-cnt">${pgCount} หน้า</span>
+      </div>
+      <div class="hg-pages" id="hgp-${si}">
+        ${(session.pages || []).map((p, pi) => `
+          <div class="hr-row" onclick="openChReader(${si}, ${pi})">
+            <div class="hr-img-wrap">
+              <img class="hr-img" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">
+              <span class="hr-pgnum">หน้า ${p.pageNum}</span>
+            </div>
+            <div class="hr-txt">${esc(p.result || '(ยังไม่แปล)')}</div>
+          </div>`).join('')}
+        <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);">
+          <button class="ibtn full red" onclick="event.stopPropagation();openChReader(${si},0)">📖 อ่านทั้งตอน</button>
+          <button class="ibtn" style="padding:8px 12px;" onclick="event.stopPropagation();copySession(${si})" title="คัดลอกทั้งตอน">📋</button>
+          <button class="ibtn" style="padding:8px 12px;color:var(--red);" onclick="event.stopPropagation();deleteSession(${si})" title="ลบตอนนี้">🗑</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-/* ── MODAL ── */
-function openModal(i) {
-  const h = S.history[i]; if (!h) return;
-  document.getElementById('modalTitle').textContent = h.src || 'ผลการแปล';
-  document.getElementById('modalBody').textContent  = h.result || '';
-  document.getElementById('modalBg').classList.add('on');
+function toggleSession(si) {
+  const pages = document.getElementById(`hgp-${si}`);
+  if (!pages) return;
+  pages.classList.toggle('on');
 }
+
+function renameSession(si, val) {
+  if (S.history[si]) { S.history[si].title = val.trim() || S.history[si].title; saveStorage(); }
+}
+
+function copySession(si) {
+  const session = S.history[si]; if (!session) return;
+  const text = (session.pages || []).map(p => `=== หน้า ${p.pageNum} ===\n${p.result}`).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => toast('คัดลอกทั้งตอน ✓', 'ok'));
+}
+
+function deleteSession(si) {
+  if (!confirm(`ลบ "${S.history[si]?.title || 'ตอนนี้'}" ออกจากประวัติ?`)) return;
+  S.history.splice(si, 1); saveStorage(); renderHistory();
+}
+
+/* ── CHAPTER READER ── */
+let _cr = { si: 0, pi: 0, view: 'stack' };
+
+function openChReader(si, pi) {
+  const session = S.history[si]; if (!session?.pages?.length) return;
+  _cr.si = si; _cr.pi = pi;
+  document.getElementById('chReaderTitle').textContent = session.title || 'ประวัติ';
+  _renderChReader();
+  document.getElementById('chReader').classList.add('on');
+  // Scroll to selected page
+  requestAnimationFrame(() => {
+    const pg = document.getElementById(`crpg-${pi}`);
+    if (pg) pg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+function closeChReader() {
+  document.getElementById('chReader').classList.remove('on');
+}
+
+function setChView(v) {
+  _cr.view = v;
+  document.getElementById('cvbStack').classList.toggle('on', v === 'stack');
+  document.getElementById('cvbSplit').classList.toggle('on', v === 'split');
+  const scroll = document.getElementById('chReaderScroll');
+  scroll.className = `ch-reader-scroll cr-${v}`;
+  _renderChReader(false); // re-render without scroll reset
+}
+
+function _renderChReader(doScroll = true) {
+  const session = S.history[_cr.si];
+  const scroll = document.getElementById('chReaderScroll');
+  if (!session?.pages?.length) return;
+
+  const hasOverlay = session.pages.some(p => p.isOverlay);
+
+  scroll.innerHTML = session.pages.map((p, pi) => {
+    if (p.isOverlay) {
+      // Overlay page: show image with canvas overlay
+      return `
+        <div class="cr-page" id="crpg-${pi}">
+          <div class="ov-wrap" id="ovwrap-${pi}" style="position:relative;display:block;width:100%;">
+            <img class="cr-page-img" id="ovimg-${pi}"
+              src="${esc(p.thumb || '')}"
+              onerror="this.style.display='none'"
+              loading="lazy"
+              onload="applyOverlayFromPage(${_cr.si}, ${pi})"
+              style="display:block;width:100%;">
+          </div>
+          <div class="cr-page-txt" style="border-top:2px solid rgba(232,25,44,.3);">
+            <span class="cr-pgnum">— หน้า ${p.pageNum} (Overlay) —</span>${esc(p.result || '')}
+          </div>
+        </div>`;
+    } else {
+      return `
+        <div class="cr-page" id="crpg-${pi}">
+          <img class="cr-page-img" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">
+          <div class="cr-page-txt">
+            <span class="cr-pgnum">— หน้า ${p.pageNum} —</span>${esc(p.result || '')}
+          </div>
+        </div>`;
+    }
+  }).join('');
+
+  if (doScroll) {
+    requestAnimationFrame(() => {
+      const pg = document.getElementById(`crpg-${_cr.pi}`);
+      if (pg) pg.scrollIntoView({ block: 'start' });
+      else scroll.scrollTop = 0;
+    });
+  }
+}
+
+function applyOverlayFromPage(si, pi) {
+  const page = S.history[si]?.pages?.[pi];
+  if (!page?.bubblesData) return;
+  const imgEl = document.getElementById(`ovimg-${pi}`);
+  if (!imgEl) return;
+  renderOverlayCanvas(imgEl, page.bubblesData).catch(e => console.warn('Overlay render:', e));
+}
+
+/* ── OLD MODAL (backward compat — not used for history anymore) ── */
+function openModal(i) {}
 function closeModal(e) { if (e.target === document.getElementById('modalBg')) document.getElementById('modalBg').classList.remove('on'); }
 function copyModal() { navigator.clipboard.writeText(document.getElementById('modalBody').textContent).then(() => toast('คัดลอกแล้ว ✓', 'ok')); }
 
