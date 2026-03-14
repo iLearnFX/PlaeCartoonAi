@@ -295,7 +295,64 @@ select option{background:var(--ink2);}
 .tl-btn:disabled{background:var(--ink3);color:var(--t3);box-shadow:none;cursor:not-allowed;}
 .tl-btn.loading{background:linear-gradient(135deg,#6d28d9 0%,#4c1d95 100%);box-shadow:0 6px 28px rgba(109,40,217,.35);}
 
-/* TOGGLE SWITCH */
+/* TTS PLAYER BAR */
+.tts-bar{
+  position:fixed;bottom:60px;left:0;right:0;z-index:1200;
+  max-width:500px;margin:0 auto;
+  background:var(--ink2);border:1px solid var(--line2);
+  border-radius:var(--r2) var(--r2) 0 0;
+  box-shadow:0 -4px 32px rgba(0,0,0,.5);
+  padding:0;overflow:hidden;
+  transform:translateY(110%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.tts-bar.on{transform:translateY(0);}
+/* Inside chapter reader, dock to bottom of reader */
+.ch-reader .tts-bar{
+  position:sticky;bottom:0;z-index:10;
+  border-radius:0;transform:none!important;
+  box-shadow:0 -2px 12px rgba(0,0,0,.4);
+  max-width:100%;
+}
+
+.tts-prog-wrap{height:3px;background:var(--line);cursor:pointer;}
+.tts-prog{height:100%;background:linear-gradient(90deg,var(--red),var(--amber));width:0%;transition:width .3s linear;}
+
+.tts-main{display:flex;align-items:center;gap:10px;padding:10px 14px;}
+.tts-info{flex:1;min-width:0;}
+.tts-pg{font-family:var(--fM);font-size:10px;color:var(--t3);letter-spacing:1px;}
+.tts-line{
+  font-size:13px;color:var(--t1);line-height:1.5;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  margin-top:2px;
+}
+.tts-line.speaking{color:var(--jade);}
+
+.tts-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.tts-btn{
+  width:34px;height:34px;background:var(--ink3);border:1px solid var(--line2);
+  border-radius:50%;color:var(--t1);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.tts-btn:hover{background:var(--ink4);border-color:var(--red);}
+.tts-btn.play{
+  width:40px;height:40px;font-size:17px;
+  background:var(--red);border-color:var(--red);color:#fff;
+  box-shadow:0 2px 12px var(--redGlow);
+}
+.tts-btn.play:hover{background:#c4121f;}
+.tts-btn.play.paused{background:var(--jade);border-color:var(--jade);box-shadow:0 2px 12px rgba(0,200,150,.4);}
+
+.tts-speed{
+  background:var(--ink3);border:1px solid var(--line2);border-radius:var(--r);
+  color:var(--t1);font-family:var(--fM);font-size:10px;
+  padding:4px 6px;cursor:pointer;
+}
+
+.tts-highlight{
+  background:rgba(0,200,150,.18)!important;
+  border-left:3px solid var(--jade);
+  transition:background .2s;
+}
 .toggle-switch{position:relative;display:inline-block;cursor:pointer;flex-shrink:0;}
 .toggle-switch input{display:none;}
 .ts-track{
@@ -897,12 +954,63 @@ select option{background:var(--ink2);}
   <div class="ch-reader-bar">
     <button class="ch-reader-close" onclick="closeChReader()">✕</button>
     <span class="ch-reader-title" id="chReaderTitle">ชื่อตอน</span>
+    <button class="ch-vbtn" id="cvbOverlay" onclick="toggleChOverlay()" style="display:none;background:var(--ink3);border:1px solid var(--line);border-radius:var(--r);padding:5px 9px;font-size:11px;cursor:pointer;color:var(--t2);">🖊 Overlay</button>
+    <button class="tts-btn" id="ttsReaderBtn" onclick="ttsToggleReader()" title="อ่านออกเสียง" style="width:30px;height:30px;font-size:14px;flex-shrink:0;">🔊</button>
     <div class="ch-view-toggle">
       <button class="ch-vbtn on" id="cvbStack" onclick="setChView('stack')">📜 ซ้อน</button>
       <button class="ch-vbtn"    id="cvbSplit" onclick="setChView('split')">⬛ Split</button>
     </div>
   </div>
   <div class="ch-reader-scroll cr-stack" id="chReaderScroll"></div>
+
+  <!-- TTS bar docked inside reader -->
+  <div class="tts-bar" id="ttsBarReader">
+    <div class="tts-prog-wrap" onclick="ttsSeek(event,'reader')"><div class="tts-prog" id="ttsProgReader"></div></div>
+    <div class="tts-main">
+      <div class="tts-info">
+        <div class="tts-pg" id="ttsPgReader">หน้า — / —</div>
+        <div class="tts-line" id="ttsLineReader">กด 🔊 เพื่อเริ่มอ่าน</div>
+      </div>
+      <div class="tts-controls">
+        <select class="tts-speed" id="ttsSpeedReader" onchange="ttsSetSpeed(this.value)">
+          <option value="0.8">0.8×</option>
+          <option value="1.0" selected>1.0×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+          <option value="1.75">1.75×</option>
+          <option value="2.0">2.0×</option>
+        </select>
+        <button class="tts-btn" onclick="ttsSkip(-1)" title="หน้าก่อนหน้า">⏮</button>
+        <button class="tts-btn play" id="ttsPlayBtn" onclick="ttsPlayPause()">▶</button>
+        <button class="tts-btn" onclick="ttsSkip(1)" title="หน้าถัดไป">⏭</button>
+        <button class="tts-btn" onclick="ttsStop()" title="หยุด">⏹</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TTS FLOATING BAR (for history page) -->
+<div class="tts-bar" id="ttsBarFloat">
+  <div class="tts-prog-wrap" onclick="ttsSeek(event,'float')"><div class="tts-prog" id="ttsProgFloat"></div></div>
+  <div class="tts-main">
+    <div class="tts-info">
+      <div class="tts-pg" id="ttsPgFloat">—</div>
+      <div class="tts-line" id="ttsLineFloat">—</div>
+    </div>
+    <div class="tts-controls">
+      <select class="tts-speed" id="ttsSpeedFloat" onchange="ttsSetSpeed(this.value)">
+        <option value="0.8">0.8×</option>
+        <option value="1.0" selected>1.0×</option>
+        <option value="1.25">1.25×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2.0">2.0×</option>
+      </select>
+      <button class="tts-btn" onclick="ttsSkip(-1)">⏮</button>
+      <button class="tts-btn play" id="ttsPlayBtnF" onclick="ttsPlayPause()">▶</button>
+      <button class="tts-btn" onclick="ttsSkip(1)">⏭</button>
+      <button class="tts-btn" onclick="ttsStop()">⏹</button>
+    </div>
+  </div>
 </div>
 
 <!-- ════════════════════════════════════════════
@@ -1019,7 +1127,49 @@ function saveStorage() {
     apiKey: S.apiKey, model: S.model, customModel: S.customModel,
     corsProxy: S.corsProxy, sysPrompt: S.sysPrompt,
   }));
-  localStorage.setItem('plae_hist', JSON.stringify(S.history.slice(0, 60)));
+
+  // Strip large base64 thumbs + separate bubblesData before saving to localStorage
+  // bubblesData saved in sessionStorage (survives tab refresh, not browser restart)
+  const histToSave = S.history.slice(0, 30).map(session => ({
+    ...session,
+    pages: (session.pages || []).map(p => {
+      const { bubblesData, ...rest } = p;
+      // Thumb: if base64, truncate (just store src URL for re-fetch if needed)
+      if (rest.thumb && rest.thumb.startsWith('data:') && rest.thumb.length > 50000) {
+        rest.thumb = rest.src || ''; // fallback to original URL
+      }
+      return rest;
+    }),
+  }));
+
+  try {
+    localStorage.setItem('plae_hist', JSON.stringify(histToSave));
+  } catch(e) {
+    // If still too large, save without thumbs
+    const minHist = histToSave.map(s => ({
+      ...s,
+      pages: s.pages.map(p => ({ ...p, thumb: '' })),
+    }));
+    try { localStorage.setItem('plae_hist', JSON.stringify(minHist)); } catch(e2) {}
+  }
+
+  // bubblesData in sessionStorage (keyed by session_id + page_num)
+  S.history.forEach(session => {
+    (session.pages || []).forEach(p => {
+      if (p.bubblesData) {
+        const key = `bd_${session.id}_${p.pageNum}`;
+        try { sessionStorage.setItem(key, JSON.stringify(p.bubblesData)); } catch(e) {}
+      }
+    });
+  });
+}
+
+function loadBubblesData(sessionId, pageNum) {
+  const key = `bd_${sessionId}_${pageNum}`;
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
 }
 
 /* ── STATUS BAR (translate page) ── */
@@ -1836,9 +1986,14 @@ function guessTitle(items) {
 }
 
 function extractPageNum(name) {
-  // Extract trailing number from filename for sorting
-  const m = name.match(/_(\d+)\.\w+$/) || name.match(/(\d+)\.\w+$/);
-  return m ? parseInt(m[1]) : 0;
+  // Remove extension first
+  const base = name.replace(/\.\w+$/, '');
+  // Pattern: ends with _NUMBER or -NUMBER  e.g. ch_830_12 → 12, 830_3 → 3
+  const m = base.match(/_(\d+)$/) || base.match(/-(\d+)$/);
+  if (m) return parseInt(m[1]);
+  // Fallback: last number in string
+  const nums = base.match(/\d+/g);
+  return nums ? parseInt(nums[nums.length - 1]) : 0;
 }
 
 async function callAI(item, modelId, tgtLang, srcHint, sysPrompt) {
@@ -1973,116 +2128,6 @@ If a region has no clear text, skip it.`;
   return parsed;
 }
 
-/* ══ RENDER OVERLAY ON CANVAS ══
-   Takes an <img> element + bubble JSON + inserts a canvas overlay
-*/
-async function renderOverlayCanvas(imgEl, bubblesData) {
-  // Wait for image to load
-  await new Promise(res => {
-    if (imgEl.complete && imgEl.naturalWidth) res();
-    else { imgEl.onload = res; }
-  });
-
-  const iw = imgEl.naturalWidth  || imgEl.offsetWidth;
-  const ih = imgEl.naturalHeight || imgEl.offsetHeight;
-
-  // Wrap image in ov-wrap if not already
-  let wrap = imgEl.closest('.ov-wrap');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.className = 'ov-wrap';
-    imgEl.parentNode.insertBefore(wrap, imgEl);
-    wrap.appendChild(imgEl);
-  }
-
-  // Remove existing canvas
-  wrap.querySelectorAll('canvas.ov-canvas').forEach(c => c.remove());
-
-  const canvas = document.createElement('canvas');
-  canvas.className = 'ov-canvas';
-  canvas.width  = iw;
-  canvas.height = ih;
-  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
-  wrap.appendChild(canvas);
-
-  const ctx = canvas.getContext('2d');
-  const bubbles = bubblesData.bubbles || [];
-
-  for (const b of bubbles) {
-    const x = b.x / 100 * iw;
-    const y = b.y / 100 * ih;
-    const w = b.w / 100 * iw;
-    const h = b.h / 100 * ih;
-    const bg = b.bg || '#ffffff';
-    const radius = Math.min(w, h) * 0.15;
-
-    // Fill bubble background
-    ctx.save();
-    ctx.beginPath();
-    if (b.shape === 'round' || b.shape === 'cloud' || b.shape === 'thought') {
-      // Rounded rect for speech/thought bubbles
-      ctx.roundRect(x, y, w, h, radius);
-    } else {
-      ctx.roundRect(x, y, w, h, 4);
-    }
-    ctx.fillStyle = bg;
-    ctx.fill();
-
-    // Subtle border to blend
-    ctx.strokeStyle = bg === '#ffffff' || bg === '#fff' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
-
-    // Draw translated text
-    const text = b.text || '';
-    if (!text) continue;
-
-    const padding = Math.max(4, w * 0.06);
-    const maxW = w - padding * 2;
-    const isDark = isDarkColor(bg);
-    ctx.fillStyle = isDark ? '#ffffff' : '#1a1a1a';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Auto font size to fit bubble
-    let fontSize = Math.max(10, Math.min(18, h * 0.28));
-    let lines;
-    do {
-      ctx.font = `bold ${fontSize}px "Noto Sans Thai", sans-serif`;
-      lines = wrapText(ctx, text, maxW);
-      const totalH = lines.length * fontSize * 1.3;
-      if (totalH <= h - padding * 2 || fontSize <= 9) break;
-      fontSize -= 1;
-    } while (fontSize > 9);
-
-    ctx.font = `bold ${fontSize}px "Noto Sans Thai", sans-serif`;
-    const lineH = fontSize * 1.3;
-    const totalH = lines.length * lineH;
-    const startY = y + h / 2 - totalH / 2 + lineH / 2;
-
-    lines.forEach((line, li) => {
-      const ly = startY + li * lineH;
-      // Text shadow for readability
-      ctx.shadowColor = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.6)';
-      ctx.shadowBlur = 2;
-      ctx.fillText(line, x + w / 2, ly);
-    });
-    ctx.shadowBlur = 0;
-  }
-
-  // Badge
-  let badge = wrap.querySelector('.ov-badge');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.className = 'ov-badge';
-    badge.textContent = `✦ Overlay ${bubbles.length} bubble`;
-    wrap.appendChild(badge);
-  } else {
-    badge.textContent = `✦ Overlay ${bubbles.length} bubble`;
-  }
-}
-
 function wrapText(ctx, text, maxW) {
   const words = text.split('');  // Thai doesn't have word spaces; split by char
   // Better: try splitting by natural breaks first
@@ -2110,7 +2155,302 @@ function isDarkColor(hex) {
   return (r*299 + g*587 + b*114) / 1000 < 128;
 }
 
-function setLoading(on) {
+/* ════════════════════════════════════════════
+   TTS ENGINE — Web Speech API
+   ════════════════════════════════════════════ */
+const TTS = {
+  synth: window.speechSynthesis || null,
+  voices: [],
+  rate: 1.0,
+  // Current playlist
+  pages: [],      // [{pageNum, text}]
+  pi: 0,          // current page index in playlist
+  lines: [],      // sentences of current page
+  li: 0,          // current line index
+  utt: null,      // current SpeechSynthesisUtterance
+  playing: false,
+  paused: false,
+  mode: 'reader', // 'reader' | 'float'
+  lang: 'th-TH',
+};
+
+// Lang code map
+const TTS_LANG = {
+  th:'th-TH', en:'en-US', ja:'ja-JP',
+  zh:'zh-CN', 'zh-TW':'zh-TW', ko:'ko-KR',
+};
+
+function ttsInit() {
+  if (!TTS.synth) { toast('เบราว์เซอร์นี้ไม่รองรับ TTS', 'err'); return false; }
+  // Load voices (async on Chrome)
+  const load = () => { TTS.voices = TTS.synth.getVoices(); };
+  load();
+  TTS.synth.onvoiceschanged = load;
+  return true;
+}
+
+function ttsBestVoice(lang) {
+  const voices = TTS.voices;
+  // Exact match
+  let v = voices.find(v => v.lang === lang);
+  if (v) return v;
+  // Prefix match (e.g. th-TH → th)
+  const prefix = lang.split('-')[0];
+  v = voices.find(v => v.lang.startsWith(prefix));
+  if (v) return v;
+  return null;
+}
+
+/* ── Build playlist from session ── */
+function ttsBuildPlaylist(si, startPi = 0) {
+  const session = S.history[si];
+  if (!session?.pages?.length) return false;
+  TTS.pages = session.pages.map(p => ({
+    pageNum: p.pageNum,
+    text: ttsCleanText(p.result || ''),
+  })).filter(p => p.text.trim());
+  TTS.pi = Math.max(0, TTS.pages.findIndex((_, i) => i >= startPi));
+  TTS.lang = TTS_LANG[session.tgt || 'th'] || 'th-TH';
+  return TTS.pages.length > 0;
+}
+
+function ttsCleanText(raw) {
+  // Remove label prefixes like [bubble 1]:, [บอลลูน 2]:, === หน้า N ===, — หน้า N —
+  return raw
+    .replace(/===.*?===/g, '')
+    .replace(/—\s*หน้า\s*\d+[^—]*—/g, '')
+    .replace(/\[bubble\s*\d+\]:\s*/gi, '')
+    .replace(/\[บอลลูน\s*\d+\]:\s*/gi, '')
+    .replace(/\[(SFX|คำบรรยาย|ป้าย|sign|caption|narration)\]:\s*/gi, '')
+    .replace(/\[.*?\]:\s*/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function ttsSplitSentences(text) {
+  // Split on sentence-ending punctuation, keeping delimiter
+  return text
+    .split(/(?<=[.!?。！？\n])\s*/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+/* ── Play controls ── */
+function ttsReadSession(si, startPi = 0) {
+  if (!ttsInit()) return;
+  ttsStop();
+  if (!ttsBuildPlaylist(si, startPi)) { toast('ไม่มีข้อความสำหรับอ่าน', 'err'); return; }
+  TTS.mode = 'float';
+  document.getElementById('ttsBarFloat').classList.add('on');
+  ttsStartPage();
+}
+
+function ttsToggleReader() {
+  if (!ttsInit()) return;
+  if (TTS.playing && TTS.mode === 'reader') { ttsPlayPause(); return; }
+  const si = _cr.si;
+  const session = S.history[si];
+  if (!session) return;
+  ttsStop();
+  if (!ttsBuildPlaylist(si, _cr.pi)) { toast('ไม่มีข้อความสำหรับอ่าน', 'err'); return; }
+  TTS.mode = 'reader';
+  document.getElementById('ttsBarReader').classList.add('on');
+  document.getElementById('ttsReaderBtn').style.color = 'var(--jade)';
+  ttsStartPage();
+}
+
+function ttsStartPage() {
+  if (TTS.pi >= TTS.pages.length) { ttsStop(); return; }
+  const page = TTS.pages[TTS.pi];
+  TTS.lines = ttsSplitSentences(page.text);
+  TTS.li = 0;
+  ttsUpdateUI();
+  ttsSpeak();
+}
+
+function ttsSpeak() {
+  if (!TTS.synth) return;
+  if (TTS.li >= TTS.lines.length) {
+    // Next page
+    TTS.pi++;
+    ttsStartPage();
+    return;
+  }
+
+  const line = TTS.lines[TTS.li];
+  ttsHighlightLine(line);
+
+  const utt = new SpeechSynthesisUtterance(line);
+  utt.lang  = TTS.lang;
+  utt.rate  = TTS.rate;
+  utt.pitch = 1.0;
+
+  const voice = ttsBestVoice(TTS.lang);
+  if (voice) utt.voice = voice;
+
+  utt.onend = () => {
+    if (!TTS.playing) return;
+    TTS.li++;
+    ttsUpdateProgress();
+    ttsSpeak();
+  };
+  utt.onerror = (e) => {
+    if (e.error === 'interrupted' || e.error === 'canceled') return;
+    TTS.li++;
+    ttsSpeak();
+  };
+
+  TTS.utt = utt;
+  TTS.playing = true;
+  TTS.paused = false;
+  TTS.synth.speak(utt);
+  ttsUpdatePlayBtn();
+}
+
+function ttsPlayPause() {
+  if (!TTS.synth) return;
+  if (!TTS.playing && !TTS.paused) {
+    // Not started yet — start
+    ttsToggleReader();
+    return;
+  }
+  if (TTS.paused) {
+    TTS.synth.resume();
+    TTS.paused = false;
+    TTS.playing = true;
+  } else {
+    TTS.synth.pause();
+    TTS.paused = true;
+    TTS.playing = false;
+  }
+  ttsUpdatePlayBtn();
+}
+
+function ttsStop() {
+  if (TTS.synth) { TTS.synth.cancel(); }
+  TTS.playing = false;
+  TTS.paused  = false;
+  TTS.utt     = null;
+  ttsClearHighlight();
+  document.getElementById('ttsBarFloat').classList.remove('on');
+  document.getElementById('ttsBarReader').classList.remove('on');
+  const btn = document.getElementById('ttsReaderBtn');
+  if (btn) btn.style.color = '';
+  ttsUpdatePlayBtn();
+  ttsUpdateProgress(0);
+}
+
+function ttsSkip(dir) {
+  TTS.synth?.cancel();
+  TTS.pi = Math.max(0, Math.min(TTS.pages.length - 1, TTS.pi + dir));
+  TTS.li = 0;
+  TTS.playing = true;
+  ttsStartPage();
+}
+
+function ttsSetSpeed(val) {
+  TTS.rate = parseFloat(val);
+  // Sync both selects
+  ['ttsSpeedReader','ttsSpeedFloat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  });
+  // Restart current utterance with new speed
+  if (TTS.playing) {
+    TTS.synth.cancel();
+    TTS.playing = true;
+    ttsSpeak();
+  }
+}
+
+/* ── UI Updates ── */
+function ttsUpdateUI() {
+  const page = TTS.pages[TTS.pi];
+  if (!page) return;
+  const label = `หน้า ${page.pageNum} / ${TTS.pages[TTS.pages.length-1]?.pageNum}`;
+  const preview = TTS.lines[0]?.slice(0, 40) || '—';
+  ['Reader','Float'].forEach(s => {
+    const pg   = document.getElementById(`ttsPg${s}`);
+    const line = document.getElementById(`ttsLine${s}`);
+    if (pg)   pg.textContent   = label;
+    if (line) line.textContent = preview;
+  });
+  // Scroll reader to current page
+  if (TTS.mode === 'reader') {
+    const el = document.getElementById(`crpg-${TTS.pi}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function ttsUpdateProgress(override) {
+  const total = TTS.lines.length || 1;
+  const pct = override !== undefined
+    ? override
+    : ((TTS.li / total) * 100).toFixed(1);
+  ['Reader','Float'].forEach(s => {
+    const el = document.getElementById(`ttsProg${s}`);
+    if (el) el.style.width = pct + '%';
+  });
+  // Update current line display
+  const line = TTS.lines[TTS.li] || '';
+  ['Reader','Float'].forEach(s => {
+    const el = document.getElementById(`ttsLine${s}`);
+    if (el) { el.textContent = line.slice(0, 60) || '…'; el.classList.add('speaking'); }
+  });
+}
+
+function ttsUpdatePlayBtn() {
+  const playing = TTS.playing && !TTS.paused;
+  ['ttsPlayBtn','ttsPlayBtnF'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.textContent = TTS.paused ? '▶' : (TTS.playing ? '⏸' : '▶');
+    btn.classList.toggle('paused', TTS.paused);
+  });
+}
+
+/* ── Sentence Highlight ── */
+let _ttsHighEl = null;
+function ttsHighlightLine(line) {
+  ttsClearHighlight();
+  const scroll = document.getElementById('chReaderScroll');
+  if (!scroll || TTS.mode !== 'reader') return;
+  // Find paragraph element containing this text
+  const els = scroll.querySelectorAll('.cr-page-txt');
+  for (const el of els) {
+    if (el.textContent.includes(line.slice(0, 20))) {
+      el.classList.add('tts-highlight');
+      _ttsHighEl = el;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      break;
+    }
+  }
+}
+function ttsClearHighlight() {
+  if (_ttsHighEl) { _ttsHighEl.classList.remove('tts-highlight'); _ttsHighEl = null; }
+  document.querySelectorAll('.tts-highlight').forEach(e => e.classList.remove('tts-highlight'));
+}
+
+function ttsSeek(e, mode) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = (e.clientX - rect.left) / rect.width;
+  const idx  = Math.floor(pct * TTS.pages.length);
+  TTS.synth?.cancel();
+  TTS.pi = Math.max(0, Math.min(TTS.pages.length - 1, idx));
+  TTS.li = 0;
+  TTS.playing = true;
+  ttsStartPage();
+}
+
+// Stop TTS when closing reader
+const _origCloseChReader = closeChReader;
+closeChReader = function() {
+  if (TTS.mode === 'reader') ttsStop();
+  _origCloseChReader();
+};
+
+// Init on load
+document.addEventListener('DOMContentLoaded', () => { ttsInit(); });
   document.getElementById('overlay').classList.toggle('on', on);
   const btn = document.getElementById('tlBtn');
   btn.disabled = on; btn.classList.toggle('loading', on);
@@ -2168,6 +2508,7 @@ function renderHistory() {
           </div>`).join('')}
         <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);">
           <button class="ibtn full red" onclick="event.stopPropagation();openChReader(${si},0)">📖 อ่านทั้งตอน</button>
+          <button class="ibtn" style="padding:8px 12px;" onclick="event.stopPropagation();ttsReadSession(${si})" title="อ่านออกเสียง">🔊</button>
           <button class="ibtn" style="padding:8px 12px;" onclick="event.stopPropagation();copySession(${si})" title="คัดลอกทั้งตอน">📋</button>
           <button class="ibtn" style="padding:8px 12px;color:var(--red);" onclick="event.stopPropagation();deleteSession(${si})" title="ลบตอนนี้">🗑</button>
         </div>
@@ -2198,19 +2539,34 @@ function deleteSession(si) {
 }
 
 /* ── CHAPTER READER ── */
-let _cr = { si: 0, pi: 0, view: 'stack' };
+let _cr = { si: 0, pi: 0, view: 'stack', showOverlay: true };
 
 function openChReader(si, pi) {
   const session = S.history[si]; if (!session?.pages?.length) return;
-  _cr.si = si; _cr.pi = pi;
+  _cr.si = si; _cr.pi = pi; _cr.showOverlay = true;
   document.getElementById('chReaderTitle').textContent = session.title || 'ประวัติ';
+
+  // Show/hide overlay toggle
+  const hasOv = session.pages.some(p => p.isOverlay);
+  const ovBtn = document.getElementById('cvbOverlay');
+  ovBtn.style.display = hasOv ? 'block' : 'none';
+  ovBtn.classList.toggle('on', true);
+  ovBtn.textContent = '🖊 Overlay ON';
+
   _renderChReader();
   document.getElementById('chReader').classList.add('on');
-  // Scroll to selected page
   requestAnimationFrame(() => {
     const pg = document.getElementById(`crpg-${pi}`);
     if (pg) pg.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+}
+
+function toggleChOverlay() {
+  _cr.showOverlay = !_cr.showOverlay;
+  const btn = document.getElementById('cvbOverlay');
+  btn.classList.toggle('on', _cr.showOverlay);
+  btn.textContent = _cr.showOverlay ? '🖊 Overlay ON' : '🖊 Overlay OFF';
+  _renderChReader(false);
 }
 
 function closeChReader() {
@@ -2231,23 +2587,22 @@ function _renderChReader(doScroll = true) {
   const scroll = document.getElementById('chReaderScroll');
   if (!session?.pages?.length) return;
 
-  const hasOverlay = session.pages.some(p => p.isOverlay);
-
   scroll.innerHTML = session.pages.map((p, pi) => {
-    if (p.isOverlay) {
-      // Overlay page: show image with canvas overlay
+    const useOverlay = p.isOverlay && _cr.showOverlay;
+    if (useOverlay) {
       return `
         <div class="cr-page" id="crpg-${pi}">
-          <div class="ov-wrap" id="ovwrap-${pi}" style="position:relative;display:block;width:100%;">
-            <img class="cr-page-img" id="ovimg-${pi}"
+          <div class="ov-wrap" style="position:relative;display:block;width:100%;">
+            <img class="cr-page-img ov-img-pending"
+              id="ovimg-${pi}"
+              data-si="${_cr.si}"
+              data-pi="${pi}"
               src="${esc(p.thumb || '')}"
               onerror="this.style.display='none'"
-              loading="lazy"
-              onload="applyOverlayFromPage(${_cr.si}, ${pi})"
               style="display:block;width:100%;">
           </div>
-          <div class="cr-page-txt" style="border-top:2px solid rgba(232,25,44,.3);">
-            <span class="cr-pgnum">— หน้า ${p.pageNum} (Overlay) —</span>${esc(p.result || '')}
+          <div class="cr-page-txt" style="border-top:2px solid rgba(232,25,44,.3);padding:8px 12px;">
+            <span class="cr-pgnum">— หน้า ${p.pageNum} [Overlay] —</span>${esc(p.result || '')}
           </div>
         </div>`;
     } else {
@@ -2261,21 +2616,174 @@ function _renderChReader(doScroll = true) {
     }
   }).join('');
 
-  if (doScroll) {
-    requestAnimationFrame(() => {
+  // Attach overlay after DOM is ready — use IntersectionObserver for lazy render
+  requestAnimationFrame(() => {
+    attachOverlayObservers();
+    if (doScroll) {
       const pg = document.getElementById(`crpg-${_cr.pi}`);
       if (pg) pg.scrollIntoView({ block: 'start' });
       else scroll.scrollTop = 0;
+    }
+  });
+}
+
+function attachOverlayObservers() {
+  const pending = document.querySelectorAll('.ov-img-pending');
+  if (!pending.length) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const img = entry.target;
+      const si = parseInt(img.dataset.si);
+      const pi = parseInt(img.dataset.pi);
+      img.classList.remove('ov-img-pending');
+      observer.unobserve(img);
+      // Apply overlay when image is loaded
+      const doApply = () => applyOverlayFromPage(si, pi);
+      if (img.complete && img.naturalWidth > 0) {
+        doApply();
+      } else {
+        img.addEventListener('load', doApply, { once: true });
+      }
     });
-  }
+  }, { rootMargin: '200px' });
+
+  pending.forEach(img => observer.observe(img));
 }
 
 function applyOverlayFromPage(si, pi) {
-  const page = S.history[si]?.pages?.[pi];
-  if (!page?.bubblesData) return;
+  const session = S.history[si];
+  const page = session?.pages?.[pi];
+  if (!page) return;
+
+  // Try in-memory first, then sessionStorage
+  let bd = page.bubblesData || loadBubblesData(session.id, page.pageNum);
+  if (!bd) {
+    console.warn('No bubblesData for page', pi);
+    return;
+  }
+  // Cache back into memory
+  page.bubblesData = bd;
+
   const imgEl = document.getElementById(`ovimg-${pi}`);
   if (!imgEl) return;
-  renderOverlayCanvas(imgEl, page.bubblesData).catch(e => console.warn('Overlay render:', e));
+
+  if (imgEl.complete && imgEl.naturalWidth > 0) {
+    renderOverlayCanvas(imgEl, bd).catch(e => console.warn('Overlay:', e));
+  } else {
+    imgEl.addEventListener('load', () => {
+      renderOverlayCanvas(imgEl, bd).catch(e => console.warn('Overlay:', e));
+    }, { once: true });
+  }
+}
+
+/* ══ RENDER OVERLAY ON CANVAS — robust rewrite ══ */
+async function renderOverlayCanvas(imgEl, bubblesData) {
+  if (!imgEl || !bubblesData?.bubbles?.length) return;
+
+  // Get natural dimensions
+  const iw = imgEl.naturalWidth  || imgEl.width;
+  const ih = imgEl.naturalHeight || imgEl.height;
+  if (!iw || !ih) return;
+
+  // Ensure wrapper
+  let wrap = imgEl.parentElement;
+  if (!wrap || !wrap.classList.contains('ov-wrap')) {
+    wrap = document.createElement('div');
+    wrap.className = 'ov-wrap';
+    wrap.style.cssText = 'position:relative;display:block;width:100%;';
+    imgEl.parentNode.insertBefore(wrap, imgEl);
+    wrap.appendChild(imgEl);
+  }
+  imgEl.style.display = 'block';
+  imgEl.style.width = '100%';
+
+  // Remove old canvas
+  wrap.querySelectorAll('canvas.ov-canvas').forEach(c => c.remove());
+
+  // Create canvas matching image natural size, displayed at 100% width via CSS
+  const canvas = document.createElement('canvas');
+  canvas.className = 'ov-canvas';
+  canvas.width  = iw;
+  canvas.height = ih;
+  canvas.style.cssText = `
+    position:absolute;top:0;left:0;
+    width:100%;height:100%;
+    pointer-events:none;
+  `;
+  wrap.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  const bubbles = bubblesData.bubbles;
+
+  for (const b of bubbles) {
+    // Coordinates are % of image → convert to pixels
+    const x = (b.x / 100) * iw;
+    const y = (b.y / 100) * ih;
+    const w = (b.w / 100) * iw;
+    const h = (b.h / 100) * ih;
+    if (w < 5 || h < 5) continue;
+
+    const bg = /^#[0-9a-f]{3,6}$/i.test(b.bg || '') ? b.bg : '#ffffff';
+    const radius = Math.min(w * 0.15, h * 0.15, 16);
+
+    // --- Fill bubble background to erase original text ---
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, radius);
+    ctx.fillStyle = bg;
+    ctx.fill();
+    // Soft inner shadow to blend edges
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // --- Render translated text ---
+    const text = (b.text || '').trim();
+    if (!text) continue;
+
+    const pad = Math.max(5, w * 0.07);
+    const maxTxtW = w - pad * 2;
+    const dark = isDarkColor(bg);
+    ctx.fillStyle = dark ? '#f0f0f0' : '#111111';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Find font size that fits
+    let fs = Math.min(Math.floor(h * 0.25), 20);
+    let lines = [];
+    for (; fs >= 8; fs--) {
+      ctx.font = `600 ${fs}px "Noto Sans Thai", "Noto Sans", sans-serif`;
+      lines = wrapText(ctx, text, maxTxtW);
+      const totalH = lines.length * fs * 1.35;
+      if (totalH <= h - pad * 2) break;
+    }
+
+    const lineH = fs * 1.35;
+    const totalH = lines.length * lineH;
+    const startY = y + h / 2 - totalH / 2 + lineH / 2;
+
+    ctx.font = `600 ${fs}px "Noto Sans Thai", "Noto Sans", sans-serif`;
+    lines.forEach((line, li) => {
+      const ly = startY + li * lineH;
+      // Shadow for readability
+      ctx.shadowColor = dark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.8)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(line, x + w / 2, ly);
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  // Update / create badge
+  let badge = wrap.querySelector('.ov-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'ov-badge';
+    wrap.appendChild(badge);
+  }
+  badge.textContent = `🖊 ${bubbles.length} bubble`;
 }
 
 /* ── OLD MODAL (backward compat — not used for history anymore) ── */
