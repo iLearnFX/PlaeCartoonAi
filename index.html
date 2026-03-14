@@ -871,12 +871,18 @@ function toggleVis(id) {
 }
 
 /* ── ADD URL IMAGES ── */
-function addUrlImages() {
+async function addUrlImages() {
   const raw = document.getElementById('urlInput').value.trim();
   if (!raw) { toast('ใส่ URL ก่อน', 'err'); return; }
   const urls = raw.split('\n').map(u => u.trim()).filter(u => /^https?:\/\/.+/i.test(u));
   if (!urls.length) { toast('ไม่พบ URL ที่ถูกต้อง', 'err'); return; }
-  urls.forEach(u => pushQ({ name: decodeURIComponent(u.split('/').pop().split('?')[0]) || 'image.jpg', src: u, dataUrl: u }));
+
+  toast(`⏳ กำลังโหลด ${urls.length} รูป…`, 'inf');
+  for (const u of urls) {
+    const name = decodeURIComponent(u.split('/').pop().split('?')[0]) || 'image.jpg';
+    const b64  = await fetchImgAsBase64(u);
+    pushQ({ name, src: u, dataUrl: b64 || u });
+  }
   document.getElementById('urlInput').value = '';
   toast(`เพิ่ม ${urls.length} รูป ✓`, 'ok');
 }
@@ -885,30 +891,110 @@ function addUrlImages() {
 async function scrapeWeb() {
   const rawUrl = document.getElementById('webUrl').value.trim();
   if (!rawUrl) { toast('ใส่ URL ก่อน', 'err'); return; }
+
+  // Direct image URL → เพิ่มเข้าคิวตรง
   if (/\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(rawUrl)) {
-    pushQ({ name: rawUrl.split('/').pop().split('?')[0], src: rawUrl, dataUrl: rawUrl });
-    toast('เพิ่มรูปตรงสำเร็จ ✓', 'ok'); return;
+    const name = rawUrl.split('/').pop().split('?')[0] || 'image.jpg';
+    toast('⏳ กำลังโหลดรูป…', 'inf');
+    const b64 = await fetchImgAsBase64(rawUrl);
+    pushQ({ name, src: rawUrl, dataUrl: b64 || rawUrl });
+    toast('เพิ่มรูปสำเร็จ ✓', 'ok');
+    return;
   }
+
   toast('⏳ กำลังดึงรูปจากเว็บ…', 'inf');
   document.getElementById('scrapeResult').innerHTML = '';
   try {
     const html = await fetchHtml(rawUrl);
     const imgs = extractImgs(html, rawUrl, document.getElementById('cssSelector').value.trim() || null);
-    if (!imgs.length) { toast('ไม่พบรูป — ลองใส่ CSS Selector หรือ Proxy', 'err'); return; }
-    showPreview(imgs, 'scrapeResult');
+    if (!imgs.length) { toast('ไม่พบรูป — ลองเปลี่ยน Proxy หรือใส่ CSS Selector', 'err'); return; }
+    showPreview(imgs, 'scrapeResult', rawUrl);
     toast(`พบ ${imgs.length} รูป — เลือกแล้วกด "เพิ่ม"`, 'ok');
   } catch(e) { toast('ดึงไม่ได้: ' + e.message, 'err'); }
 }
 
+/* ── FETCH HTML (รองรับ 403 / CORS) ── */
 async function fetchHtml(url) {
-  const proxy = document.getElementById('corsProxy')?.value.trim() || S.corsProxy;
-  try { const r = await fetch(url, { signal: AbortSignal.timeout(8000) }); if (r.ok) return r.text(); } catch(e) {}
+  const proxy = getProxy();
+
+  // Headers ที่ทำให้เซิร์ฟเวอร์คิดว่าเป็นเบราว์เซอร์จริง
+  const browserHeaders = {
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'th-TH,th;q=0.9,en;q=0.8',
+    'Referer': new URL(url).origin + '/',
+  };
+
+  // 1) ลองตรงก่อน (บางเว็บไม่บล็อก)
+  try {
+    const r = await fetch(url, { headers: browserHeaders, signal: AbortSignal.timeout(8000) });
+    if (r.ok) return r.text();
+  } catch(e) {}
+
+  // 2) ผ่าน Proxy
   if (proxy) {
-    const r = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(12000) });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.text();
+    // corsproxy.io รองรับ x-requested-with เพื่อส่ง header ต้นทาง
+    const proxyUrl = proxy + encodeURIComponent(url);
+    const r = await fetch(proxyUrl, {
+      headers: {
+        'x-requested-with': 'XMLHttpRequest',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (r.ok) return r.text();
+    throw new Error(`HTTP ${r.status} — ลองเปลี่ยน Proxy ในตั้งค่า`);
   }
-  throw new Error('CORS block — ใส่ Proxy ในตั้งค่า');
+
+  throw new Error('ไม่สามารถดึงได้ — ใส่ CORS Proxy ในตั้งค่า');
+}
+
+/* ── FETCH รูปภาพเป็น Base64 (แก้ปัญหา 403 ตอนส่งให้ AI) ── */
+async function fetchImgAsBase64(imgUrl) {
+  const proxy = getProxy();
+  try {
+    // ลองตรงก่อนด้วย Referrer ของเว็บต้นทาง
+    const referer = new URL(imgUrl).origin + '/';
+    const r = await fetch(imgUrl, {
+      headers: {
+        'Referer': referer,
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (r.ok) {
+      const blob = await r.blob();
+      return await blobToBase64(blob);
+    }
+  } catch(e) {}
+
+  // ผ่าน Proxy
+  if (proxy) {
+    try {
+      const r = await fetch(proxy + encodeURIComponent(imgUrl), {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (r.ok) {
+        const blob = await r.blob();
+        return await blobToBase64(blob);
+      }
+    } catch(e) {}
+  }
+
+  // ถ้าดึงไม่ได้เลย ส่ง URL ตรง (ให้ AI ลองเอง)
+  return null;
+}
+
+function blobToBase64(blob) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload  = () => res(reader.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getProxy() {
+  return (document.getElementById('corsProxy')?.value.trim()) || S.corsProxy || '';
 }
 
 function extractImgs(html, pageUrl, selector) {
@@ -941,7 +1027,11 @@ function extractImgs(html, pageUrl, selector) {
   }).filter(Boolean);
 }
 
-function showPreview(imgs, cid) {
+function showPreview(imgs, cid, pageReferer) {
+  const proxy = getProxy();
+  // ใช้ proxy สำหรับ preview ด้วย เพื่อป้องกัน 403
+  const proxyImgSrc = (src) => proxy ? proxy + encodeURIComponent(src) : src;
+
   const area = document.getElementById(cid);
   area.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -952,19 +1042,41 @@ function showPreview(imgs, cid) {
       </div>
     </div>
     <div class="scrape-grid" id="sg-${cid}">
-      ${imgs.map(s => `<img class="s-thumb sel" data-src="${esc(s)}" src="${esc(s)}" loading="lazy"
-        onerror="this.style.opacity='.3'" onclick="this.classList.toggle('sel')">`).join('')}
+      ${imgs.map(s => `<img class="s-thumb sel"
+        data-src="${esc(s)}"
+        src="${esc(proxyImgSrc(s))}"
+        loading="lazy"
+        onerror="this.src='${esc(s)}';this.onerror=null;"
+        onclick="this.classList.toggle('sel')">`).join('')}
     </div>
     <div style="margin-top:10px;">
       <button class="ibtn full red" onclick="addSelected('${cid}')">➕ เพิ่มรูปที่เลือกเข้าคิว</button>
     </div>`;
 }
-function toggleAll(cid, on) { document.querySelectorAll(`#sg-${cid} .s-thumb`).forEach(el => el.classList.toggle('sel', on)); }
-function addSelected(cid) {
-  const imgs = document.querySelectorAll(`#sg-${cid} .s-thumb.sel`);
+
+function toggleAll(cid, on) {
+  document.querySelectorAll(`#sg-${cid} .s-thumb`).forEach(el => el.classList.toggle('sel', on));
+}
+
+async function addSelected(cid) {
+  const imgs = Array.from(document.querySelectorAll(`#sg-${cid} .s-thumb.sel`));
   if (!imgs.length) { toast('ไม่ได้เลือกรูป', 'err'); return; }
-  imgs.forEach(img => { const src = img.dataset.src; pushQ({ name: src.split('/').pop().split('?')[0] || 'img.jpg', src, dataUrl: src }); });
-  toast(`เพิ่ม ${imgs.length} รูป ✓`, 'ok');
+
+  toast(`⏳ กำลังโหลด ${imgs.length} รูป…`, 'inf');
+
+  // แปลงเป็น base64 พร้อมกัน (สูงสุด 4 ขนาน)
+  const CONCURRENCY = 4;
+  for (let i = 0; i < imgs.length; i += CONCURRENCY) {
+    const batch = imgs.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (img) => {
+      const src  = img.dataset.src;
+      const name = decodeURIComponent(src.split('/').pop().split('?')[0]) || 'img.jpg';
+      const b64  = await fetchImgAsBase64(src);
+      pushQ({ name, src, dataUrl: b64 || src });
+    }));
+  }
+
+  toast(`เพิ่ม ${imgs.length} รูปเข้าคิว ✓`, 'ok');
   document.getElementById(cid).innerHTML = '';
 }
 
@@ -981,7 +1093,8 @@ async function fetchMangaDex() {
     if (!r.ok) throw new Error(`MangaDex API ${r.status}`);
     const data = await r.json();
     const pages = data.chapter.data.map(p => `${data.baseUrl}/data/${data.chapter.hash}/${p}`);
-    showPreview(pages, 'mdxResult');
+    // MangaDex CDN ไม่บล็อก hotlink → showPreview โดยตรง
+    showPreview(pages, 'mdxResult', 'https://mangadex.org/');
     toast(`MangaDex: ${pages.length} หน้า ✓`, 'ok');
   } catch(e) { toast('MangaDex Error: ' + e.message, 'err'); }
 }
@@ -1091,9 +1204,17 @@ async function startTranslation() {
 }
 
 async function callAI(item, modelId, tgtLang, srcHint, sysPrompt) {
-  const imgUrl = (item.isFile || (item.dataUrl && item.dataUrl.startsWith('data:')))
-    ? item.dataUrl : (item.src || item.dataUrl);
-  if (!imgUrl) throw new Error('ไม่มี URL รูปภาพ');
+  let imgUrl = (item.isFile || (item.dataUrl && item.dataUrl.startsWith('data:')))
+    ? item.dataUrl
+    : null;
+
+  // ถ้ายังไม่มี base64 → ดึงรูปผ่าน proxy แปลงเป็น base64 ก่อน
+  if (!imgUrl) {
+    const externalUrl = item.src || item.dataUrl;
+    if (!externalUrl) throw new Error('ไม่มี URL รูปภาพ');
+    const b64 = await fetchImgAsBase64(externalUrl);
+    imgUrl = b64 || externalUrl; // fallback ใช้ URL ตรงถ้าดึงไม่ได้
+  }
 
   const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -1117,7 +1238,10 @@ async function callAI(item, modelId, tgtLang, srcHint, sysPrompt) {
     signal: AbortSignal.timeout(60000),
   });
 
-  if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error?.message || `API ${r.status}`); }
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API ${r.status}`);
+  }
   const data = await r.json();
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('AI ไม่ส่งผลกลับมา');
