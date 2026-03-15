@@ -432,26 +432,24 @@ select option{background:var(--ink2);}
 .s-thumb:not(.sel){opacity:.45;}
 .s-del{
   position:absolute;top:3px;right:3px;
-  width:20px;height:20px;border-radius:50%;
-  background:rgba(232,25,44,.9);border:none;
-  color:#fff;font-size:10px;line-height:1;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(232,25,44,.92);border:none;
+  color:#fff;font-size:11px;line-height:1;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  opacity:0;transition:opacity .15s;z-index:2;
-  box-shadow:0 1px 4px rgba(0,0,0,.5);
+  /* Always visible — no hover needed on mobile */
+  opacity:1;z-index:2;
+  box-shadow:0 1px 5px rgba(0,0,0,.6);
 }
-.s-wrap:hover .s-del{opacity:1;}
-/* On touch devices always show controls */
-@media (hover:none){.s-del,.s-sel-btn{opacity:1!important;}}
 .s-sel-btn{
   position:absolute;bottom:3px;left:3px;
-  width:20px;height:20px;border-radius:50%;
-  background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.3);
-  color:rgba(255,255,255,.5);font-size:10px;font-weight:bold;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.5);
+  color:rgba(255,255,255,.8);font-size:11px;font-weight:bold;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  opacity:0;transition:opacity .15s, background .15s;z-index:2;
+  /* Always visible */
+  opacity:1;z-index:2;transition:background .15s;
 }
-.s-wrap:hover .s-sel-btn{opacity:1;}
-.s-sel-btn.on{background:var(--jade);border-color:var(--jade);color:var(--ink);opacity:1;}
+.s-sel-btn.on{background:var(--jade);border-color:var(--jade);color:var(--ink);}
 .s-num{
   position:absolute;bottom:3px;right:4px;
   font-family:var(--fM);font-size:9px;color:#fff;
@@ -891,11 +889,12 @@ select option{background:var(--ink2);}
 
     <!-- PWA -->
     <div class="card">
-      <div class="card-hdr"><span class="card-title">📱 PWA / GitHub</span></div>
+      <div class="card-hdr"><span class="card-title">📱 PWA / การแจ้งเตือน</span></div>
       <div class="card-body">
         <button class="ibtn full jade" id="installBtn" onclick="installPWA()" style="display:none;">📲 ติดตั้งแอปลงมือถือ</button>
+        <button class="ibtn full sky" id="notifyBtn" onclick="notifyEnable()">🔔 อนุญาตแจ้งเตือนเมื่อแปลเสร็จ</button>
         <div class="hint" style="background:rgba(56,189,248,.05);border-color:rgba(56,189,248,.2);">
-          <b style="color:var(--sky);">GitHub Pages:</b> อัปโหลด 5 ไฟล์ → Settings → Pages → main<br>
+          <b style="color:var(--sky);">แจ้งเตือน:</b> รับ notification เมื่อแปลเสร็จ แม้จะ minimize แอปไว้<br>
           <b style="color:var(--sky);">iOS Safari:</b> Share → Add to Home Screen<br>
           <b style="color:var(--sky);">Android Chrome:</b> เมนู ⋮ → เพิ่มไปหน้าจอหลัก
         </div>
@@ -1068,6 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
   buildModelGrid();
   setupDrop();
   renderStatusBar();
+  _updateNotifyBtn();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 });
 window.addEventListener('beforeinstallprompt', e => {
@@ -1922,6 +1922,13 @@ async function startTranslation() {
   setLoading(true); setProgress(0);
   document.getElementById('qProg').style.display = 'block';
 
+  // Request notification permission when user starts translating
+  notifyRequestPermission();
+
+  // Track progress state for background restore
+  TR.total = pending.length;
+  TR.done  = 0;
+
   // Create a new session group for this translation run
   const sessionId = Date.now();
   const autoTitle = guessTitle(pending);
@@ -1971,7 +1978,7 @@ async function startTranslation() {
     } catch(e) {
       item.status = 'error'; item.error = e.message;
     }
-    done++; setProgress(done / pending.length * 100); renderQueue();
+    done++; TR.done = done; setProgress(done / pending.length * 100); renderQueue();
   }
 
   // Sort pages by natural page number extracted from filename
@@ -1987,7 +1994,7 @@ async function startTranslation() {
   saveStorage(); setLoading(false);
   document.getElementById('qProg').style.display = 'none';
   renderStatusBar();
-  toast(`เสร็จ ${done}/${pending.length} รูป ✓`, 'ok');
+  notifyDone(session.title || autoTitle, done, pending.length);
 }
 
 function guessTitle(items) {
@@ -2501,17 +2508,104 @@ ttsBeginPage = function() {
 };
 
 
+/* ── TRANSLATION PROGRESS STATE ── */
+const TR = {
+  active:  false,
+  done:    0,
+  total:   0,
+  step:    '',
+  pct:     0,
+};
+
+function trSetActive(on, done, total, step, pct) {
+  TR.active = on;
+  TR.done   = done  || 0;
+  TR.total  = total || 0;
+  TR.step   = step  || '';
+  TR.pct    = pct   || 0;
+}
+
+function trRestoreUI() {
+  if (!TR.active) return;
+  // Re-show overlay and progress with last known state
+  document.getElementById('overlay').classList.add('on');
+  document.getElementById('tlBtn').disabled = true;
+  document.getElementById('tlBtn').classList.add('loading');
+  document.getElementById('tlIcon').textContent = '⏳';
+  document.getElementById('tlText').textContent  = 'กำลังแปล…';
+  document.getElementById('qProg').style.display = 'block';
+  setProgress(TR.pct);
+  document.getElementById('ovStep').textContent = TR.step;
+  document.getElementById('ovPF').style.width = TR.pct + '%';
+}
+
+// Restore progress UI when user comes back to the app
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && TR.active) {
+    trRestoreUI();
+  }
+});
+
+/* ── NOTIFICATION PERMISSION ── */
+function notifyRequestPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function notifyDone(title, done, total) {
+  // In-app toast always
+  toast(`✅ แปลเสร็จ ${done}/${total} รูป — "${title}"`, 'ok');
+
+  // System notification when app is in background
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('Plae-Cartoon AI ✅', {
+        body: `แปล "${title}" เสร็จแล้ว ${done}/${total} หน้า`,
+        icon: '/PlaeCartoonAi/icon-192.svg',
+        tag: 'translate-done',
+        renotify: true,
+      });
+    } catch(e) {}
+  }
+
+  // Service Worker notification (more reliable on Android PWA)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(sw => {
+      if (sw.showNotification) {
+        sw.showNotification('Plae-Cartoon AI ✅', {
+          body: `แปล "${title}" เสร็จแล้ว ${done}/${total} หน้า`,
+          icon: '/PlaeCartoonAi/icon-192.svg',
+          tag: 'translate-done',
+          renotify: true,
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+}
+
 function setLoading(on) {
+  TR.active = on;
+  if (!on) { TR.done = 0; TR.total = 0; TR.step = ''; TR.pct = 0; }
   const btn = document.getElementById('tlBtn');
   btn.disabled = on; btn.classList.toggle('loading', on);
   document.getElementById('tlIcon').textContent = on ? '⏳' : '⚡';
   document.getElementById('tlText').textContent  = on ? 'กำลังแปล…' : 'แปลการ์ตูน';
+  if (on) {
+    document.getElementById('overlay').classList.add('on');
+  } else {
+    document.getElementById('overlay').classList.remove('on');
+  }
 }
 function setProgress(pct) {
+  TR.pct = pct;
   document.getElementById('qProgFill').style.width = pct + '%';
   document.getElementById('ovPF').style.width = pct + '%';
 }
-function setOvStep(msg) { document.getElementById('ovStep').textContent = msg; }
+function setOvStep(msg) {
+  TR.step = msg;
+  document.getElementById('ovStep').textContent = msg;
+}
 
 /* ── HISTORY — SESSION GROUPED ── */
 function renderHistory() {
@@ -2529,15 +2623,13 @@ function renderHistory() {
     const modelShort = (session.model || '').split('/').pop();
     return `
     <div class="hg" id="hg-${si}">
-      <div class="hg-hdr" onclick="toggleSession(${si})">
+      <div class="hg-hdr" data-action="toggle" data-si="${si}">
         <div class="hg-thumb-strip">${thumbs}</div>
         <div class="hg-info">
           <div class="hg-title">
             <input class="hg-title-edit" id="hg-title-${si}"
               value="${esc(session.title || 'ตอนที่ไม่รู้จัก')}"
-              onclick="event.stopPropagation()"
-              onchange="renameSession(${si}, this.value)"
-              onblur="renameSession(${si}, this.value)">
+              data-action="rename" data-si="${si}">
           </div>
           <div class="hg-meta">
             <span>🕒 ${date}</span>
@@ -2549,7 +2641,7 @@ function renderHistory() {
       </div>
       <div class="hg-pages" id="hgp-${si}">
         ${(session.pages || []).map((p, pi) => `
-          <div class="hr-row" onclick="openChReader(${si}, ${pi})">
+          <div class="hr-row" data-action="openpage" data-si="${si}" data-pi="${pi}">
             <div class="hr-img-wrap">
               <img class="hr-img" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">
               <span class="hr-pgnum">หน้า ${p.pageNum}</span>
@@ -2557,14 +2649,74 @@ function renderHistory() {
             <div class="hr-txt">${esc(p.result || '(ยังไม่แปล)')}</div>
           </div>`).join('')}
         <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);">
-          <button class="ibtn full red" onclick="event.stopPropagation();openChReader(${si},0)">📖 อ่านทั้งตอน</button>
-          <button class="ibtn" style="padding:8px 12px;" onclick="event.stopPropagation();ttsReadSession(${si})" title="อ่านออกเสียง">🔊</button>
-          <button class="ibtn" style="padding:8px 12px;" onclick="event.stopPropagation();copySession(${si})" title="คัดลอกทั้งตอน">📋</button>
-          <button class="ibtn" style="padding:8px 12px;color:var(--red);" onclick="event.stopPropagation();deleteSession(${si})" title="ลบตอนนี้">🗑</button>
+          <button class="ibtn full red" data-action="readall" data-si="${si}">📖 อ่านทั้งตอน</button>
+          <button class="ibtn" style="padding:8px 12px;" data-action="ttsread" data-si="${si}" title="อ่านออกเสียง">🔊</button>
+          <button class="ibtn" style="padding:8px 12px;" data-action="copy" data-si="${si}" title="คัดลอกทั้งตอน">📋</button>
+          <button class="ibtn" style="padding:8px 12px;color:var(--red);" data-action="delete" data-si="${si}" title="ลบตอนนี้">🗑</button>
         </div>
       </div>
     </div>`;
   }).join('');
+
+  // Bind events via delegation (PWA/CSP safe)
+  _bindHistoryEvents(el);
+}
+
+function _bindHistoryEvents(el) {
+  el.addEventListener('click', function(e) {
+    // Find closest element with data-action
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+
+    const action = target.dataset.action;
+    const si = parseInt(target.dataset.si);
+    const pi = parseInt(target.dataset.pi);
+
+    switch(action) {
+      case 'toggle':
+        // Don't toggle if clicking the title input
+        if (e.target.tagName === 'INPUT') return;
+        toggleSession(si);
+        break;
+      case 'rename':
+        // Handled by change/blur below — stop propagation only
+        e.stopPropagation();
+        break;
+      case 'openpage':
+        openChReader(si, pi);
+        break;
+      case 'readall':
+        e.stopPropagation();
+        openChReader(si, 0);
+        break;
+      case 'ttsread':
+        e.stopPropagation();
+        ttsReadSession(si);
+        break;
+      case 'copy':
+        e.stopPropagation();
+        copySession(si);
+        break;
+      case 'delete':
+        e.stopPropagation();
+        deleteSession(si);
+        break;
+    }
+  });
+
+  // Title rename via change/blur
+  el.addEventListener('change', function(e) {
+    if (e.target.dataset.action === 'rename') {
+      const si = parseInt(e.target.dataset.si);
+      renameSession(si, e.target.value);
+    }
+  });
+  el.addEventListener('blur', function(e) {
+    if (e.target.dataset.action === 'rename') {
+      const si = parseInt(e.target.dataset.si);
+      renameSession(si, e.target.value);
+    }
+  }, true);
 }
 
 function toggleSession(si) {
@@ -2873,6 +3025,34 @@ function installPWA() {
     S.installEvt.prompt();
     S.installEvt.userChoice.then(r => { if (r.outcome === 'accepted') toast('ติดตั้งสำเร็จ! 🎉', 'ok'); S.installEvt = null; });
   } else { toast('เพิ่มไปหน้าจอหลักจากเมนูเบราว์เซอร์', 'inf'); }
+}
+
+function notifyEnable() {
+  if (!('Notification' in window)) {
+    toast('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน', 'err'); return;
+  }
+  if (Notification.permission === 'granted') {
+    toast('เปิดการแจ้งเตือนแล้ว ✓', 'ok');
+    _updateNotifyBtn(); return;
+  }
+  Notification.requestPermission().then(p => {
+    if (p === 'granted') toast('✅ เปิดการแจ้งเตือนแล้ว — จะแจ้งเตือนเมื่อแปลเสร็จ', 'ok');
+    else toast('❌ ไม่ได้รับอนุญาต — ตั้งค่าใน browser แทน', 'err');
+    _updateNotifyBtn();
+  });
+}
+
+function _updateNotifyBtn() {
+  const btn = document.getElementById('notifyBtn');
+  if (!btn || !('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    btn.textContent = '✅ แจ้งเตือนเปิดอยู่แล้ว';
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+  } else if (Notification.permission === 'denied') {
+    btn.textContent = '❌ ถูกบล็อก — ตั้งค่าใน Chrome แทน';
+    btn.style.color = 'var(--red)';
+  }
 }
 
 /* ── UTILS ── */
