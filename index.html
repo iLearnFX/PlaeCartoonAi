@@ -686,7 +686,7 @@ select option{background:var(--ink2);}
     </div>
   </div>
   <div class="hdr-r">
-    <button class="hbtn" onclick="clearAll()" title="ล้างคิว">🗑</button>
+    <button class="hbtn" data-app-action="clearAll" title="ล้างคิว">🗑</button>
   </div>
 </header>
 
@@ -710,7 +710,7 @@ select option{background:var(--ink2);}
         <span class="sbar-label">โมเดล</span>
         <span class="sbar-value" id="modelStatus">—</span>
       </div>
-      <button class="goto-settings" onclick="goPage('settings')">⚙️ ตั้งค่า</button>
+      <button class="goto-settings" data-app-action="goSettings">⚙️ ตั้งค่า</button>
     </div>
 
     <!-- ── LANG ── -->
@@ -726,7 +726,7 @@ select option{background:var(--ink2);}
             <option value="en">🇺🇸 อังกฤษ</option>
             <option value="th">🇹🇭 ไทย</option>
           </select>
-          <button class="swap-btn" onclick="swapLang()">⇌</button>
+          <button class="swap-btn" data-app-action="swapLang">⇌</button>
           <select id="tgtLang">
             <option value="th">🇹🇭 ไทย</option>
             <option value="en">🇺🇸 English</option>
@@ -741,10 +741,10 @@ select option{background:var(--ink2);}
     <!-- ── INPUT MODES ── -->
     <div>
       <div class="mtabs">
-        <button class="mtab on" id="mt-url"      onclick="switchMode('url')">🔗 URL</button>
-        <button class="mtab"    id="mt-web"      onclick="switchMode('web')">🌐 เว็บ</button>
-        <button class="mtab"    id="mt-mangadex" onclick="switchMode('mangadex')">📖 MDex</button>
-        <button class="mtab"    id="mt-file"     onclick="switchMode('file')">📁 ไฟล์</button>
+        <button class="mtab on" id="mt-url"      data-app-action="modeUrl">🔗 URL</button>
+        <button class="mtab"    id="mt-web"      data-app-action="modeWeb">🌐 เว็บ</button>
+        <button class="mtab"    id="mt-mangadex" data-app-action="modeMdex">📖 MDex</button>
+        <button class="mtab"    id="mt-file"     data-app-action="modeFile">📁 ไฟล์</button>
       </div>
       <div class="mbody">
 
@@ -754,7 +754,7 @@ select option{background:var(--ink2);}
             <label class="flabel">URL รูปภาพ <span class="badge b-amber">1 URL ต่อบรรทัด</span></label>
             <textarea id="urlInput" rows="3" placeholder="https://cdn.kingofshojo.com/king-bucket/253066/830/ch_830_1.jpg&#10;https://cdn.kingofshojo.com/king-bucket/253066/830/ch_830_2.jpg"></textarea>
           </div>
-          <button class="ibtn full red" onclick="addUrlImages()">➕ เพิ่มรูปเข้าคิว</button>
+          <button class="ibtn full red" data-app-action="addUrls">➕ เพิ่มรูปเข้าคิว</button>
         </div>
 
         <!-- WEB SCRAPE -->
@@ -764,7 +764,7 @@ select option{background:var(--ink2);}
             <div style="font-family:var(--fM);font-size:10px;color:var(--red);letter-spacing:1.5px;text-transform:uppercase;">⚡ kingofshojo.com — Auto Generator</div>
             <div class="row" style="gap:8px;">
               <input type="text" id="kosUrl" placeholder="https://kingofshojo.com/magic-emperor-chapter-830/" style="flex:1;">
-              <button class="ibtn red" onclick="genKingOfShojo()" style="flex:0 0 auto;padding:10px 14px;white-space:nowrap;">🎯 Generate</button>
+              <button class="ibtn red" data-app-action="genKos" style="flex:0 0 auto;padding:10px 14px;white-space:nowrap;">🎯 Generate</button>
             </div>
             <div style="font-size:11px;color:var(--t2);line-height:1.5;">
               วาง URL หน้าบทของ kingofshojo → สร้าง URL รูปทุกหน้าอัตโนมัติ ไม่ต้องใช้ Proxy
@@ -775,7 +775,7 @@ select option{background:var(--ink2);}
             <label class="flabel">URL หน้าการ์ตูน (เว็บอื่น)</label>
             <div class="row">
               <input type="text" id="webUrl" placeholder="https://example.com/manga/chapter-1/">
-              <button class="ibtn red" onclick="scrapeWeb()" style="flex:0 0 auto;padding:10px 14px;">🔍 ดูด</button>
+              <button class="ibtn red" data-app-action="scrapeWeb" style="flex:0 0 auto;padding:10px 14px;">🔍 ดูด</button>
             </div>
           </div>
           <div class="field">
@@ -794,7 +794,7 @@ select option{background:var(--ink2);}
             <label class="flabel">MangaDex Chapter URL หรือ UUID</label>
             <div class="row">
               <input type="text" id="mdxInput" placeholder="https://mangadex.org/chapter/xxxxxxxx-xxxx-…">
-              <button class="ibtn red" onclick="fetchMangaDex()" style="flex:0 0 auto;padding:10px 14px;">📖 ดึง</button>
+              <button class="ibtn red" data-app-action="fetchMdx" style="flex:0 0 auto;padding:10px 14px;">📖 ดึง</button>
             </div>
           </div>
           <div class="hint"><b>📖 MangaDex Public API</b> — ไม่ต้อง key เพิ่ม</div>
@@ -820,9 +820,9 @@ select option{background:var(--ink2);}
         <span class="q-lbl">📋 คิวรูปภาพ</span>
         <div class="q-actions">
           <span class="q-cnt" id="qCount">0</span>
-          <button class="ibtn" style="padding:4px 8px;font-size:10px;" onclick="autoSortQueue()" title="เรียงหน้าอัตโนมัติจากชื่อไฟล์">🔀 เรียง</button>
-          <button class="ibtn" style="padding:4px 8px;font-size:10px;" onclick="clearDone()">✓ ล้างแปลแล้ว</button>
-          <button class="ibtn" style="padding:4px 8px;font-size:10px;" onclick="clearAll()">🗑 ล้างทั้งหมด</button>
+          <button class="ibtn" style="padding:4px 8px;font-size:10px;" data-app-action="autoSort" title="เรียงหน้าอัตโนมัติจากชื่อไฟล์">🔀 เรียง</button>
+          <button class="ibtn" style="padding:4px 8px;font-size:10px;" data-app-action="clearDone">✓ ล้างแปลแล้ว</button>
+          <button class="ibtn" style="padding:4px 8px;font-size:10px;" data-app-action="clearAll">🗑 ล้างทั้งหมด</button>
         </div>
       </div>
       <div id="queueList"></div>
@@ -830,7 +830,7 @@ select option{background:var(--ink2);}
     </div>
 
     <!-- ── TRANSLATE BTN ── -->
-    <button class="tl-btn" id="tlBtn" onclick="startTranslation()">
+    <button class="tl-btn" id="tlBtn" data-app-action="startTranslation">
       <span id="tlIcon">⚡</span><span id="tlText">แปลการ์ตูน</span>
     </button>
     <!-- OVERLAY MODE TOGGLE -->
@@ -870,10 +870,10 @@ select option{background:var(--ink2);}
           <label class="flabel">API Key <span class="badge b-red">จำเป็น</span></label>
           <div class="ico-input">
             <input type="password" id="apiKeyS" placeholder="sk-or-v1-…" autocomplete="off">
-            <button class="ico-in" onclick="toggleVis('apiKeyS')">👁</button>
+            <button class="ico-in" data-app-action="toggleApiKey">👁</button>
           </div>
         </div>
-        <button class="ibtn sky full" onclick="testApiKey()">🔌 ทดสอบการเชื่อมต่อ</button>
+        <button class="ibtn sky full" data-app-action="testApiKey">🔌 ทดสอบการเชื่อมต่อ</button>
       </div>
     </div>
 
@@ -914,7 +914,7 @@ select option{background:var(--ink2);}
     </div>
 
     <!-- SAVE BUTTON -->
-    <button class="save-btn" onclick="saveSettings()">
+    <button class="save-btn" data-app-action="saveSettings">
       💾 บันทึกการตั้งค่า
     </button>
 
@@ -922,8 +922,8 @@ select option{background:var(--ink2);}
     <div class="card">
       <div class="card-hdr"><span class="card-title">📱 PWA / การแจ้งเตือน</span></div>
       <div class="card-body">
-        <button class="ibtn full jade" id="installBtn" onclick="installPWA()" style="display:none;">📲 ติดตั้งแอปลงมือถือ</button>
-        <button class="ibtn full sky" id="notifyBtn" onclick="notifyEnable()">🔔 อนุญาตแจ้งเตือนเมื่อแปลเสร็จ</button>
+        <button class="ibtn full jade" id="installBtn" data-app-action="installPWA" style="display:none;">📲 ติดตั้งแอปลงมือถือ</button>
+        <button class="ibtn full sky" id="notifyBtn" data-app-action="notifyEnable">🔔 อนุญาตแจ้งเตือนเมื่อแปลเสร็จ</button>
         <div class="hint" style="background:rgba(56,189,248,.05);border-color:rgba(56,189,248,.2);">
           <b style="color:var(--sky);">แจ้งเตือน:</b> รับ notification เมื่อแปลเสร็จ แม้จะ minimize แอปไว้<br>
           <b style="color:var(--sky);">iOS Safari:</b> Share → Add to Home Screen<br>
@@ -939,9 +939,9 @@ select option{background:var(--ink2);}
 
 <!-- ════ BOTTOM NAV ════════════════════════════ -->
 <nav class="nav">
-  <button class="nbtn on" id="nb-translate" onclick="goPage('translate')"><span class="ni">⚡</span>แปล</button>
-  <button class="nbtn"    id="nb-history"   onclick="goPage('history')"><span class="ni">📚</span>ประวัติ</button>
-  <button class="nbtn"    id="nb-settings"  onclick="goPage('settings')"><span class="ni">⚙️</span>ตั้งค่า</button>
+  <button class="nbtn on" id="nb-translate" data-app-action="navTranslate"><span class="ni">⚡</span>แปล</button>
+  <button class="nbtn"    id="nb-history"   data-app-action="navHistory"><span class="ni">📚</span>ประวัติ</button>
+  <button class="nbtn"    id="nb-settings"  data-app-action="goSettings"><span class="ni">⚙️</span>ตั้งค่า</button>
 </nav>
 
 </div><!-- /app -->
@@ -958,48 +958,48 @@ select option{background:var(--ink2);}
 <div class="toasts" id="toasts"></div>
 
 <!-- MODAL (history detail) -->
-<div class="modal-bg" id="modalBg" onclick="closeModal(event)">
+<div class="modal-bg" id="modalBg" data-app-action="closeModal">
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title" id="modalTitle"></div>
     <div class="modal-body"  id="modalBody"></div>
     <div style="display:flex;gap:8px;">
-      <button class="ibtn jade full" onclick="copyModal()">📋 คัดลอก</button>
-      <button class="ibtn full" onclick="document.getElementById('modalBg').classList.remove('on')">✕ ปิด</button>
+      <button class="ibtn jade full" data-app-action="copyModal">📋 คัดลอก</button>
+      <button class="ibtn full" data-app-action="closeModalBtn">✕ ปิด</button>
     </div>
   </div>
 </div>
 
 <!-- LIGHTBOX -->
-<div class="lb" id="lb" onclick="lbBgClick(event)">
+<div class="lb" id="lb" data-app-action="lbBg">
   <div class="lb-bar">
     <span class="lb-title" id="lbTitle">รูปที่ 1 / 1</span>
-    <button class="lb-close" onclick="closeLb()">✕</button>
+    <button class="lb-close" data-app-action="closeLb">✕</button>
   </div>
   <img class="lb-img" id="lbImg" src="" alt="">
   <div class="lb-nav">
-    <button class="lb-nbtn" onclick="lbMove(-1)">◀ ก่อนหน้า</button>
+    <button class="lb-nbtn" data-app-action="lbPrev">◀ ก่อนหน้า</button>
     <span class="lb-counter" id="lbCounter"></span>
-    <button class="lb-nbtn" onclick="lbMove(1)">ถัดไป ▶</button>
+    <button class="lb-nbtn" data-app-action="lbNext">ถัดไป ▶</button>
   </div>
 </div>
 
 <!-- CHAPTER READER -->
 <div class="ch-reader" id="chReader">
   <div class="ch-reader-bar">
-    <button class="ch-reader-close" onclick="closeChReader()">✕</button>
+    <button class="ch-reader-close" data-app-action="closeReader">✕</button>
     <span class="ch-reader-title" id="chReaderTitle">ชื่อตอน</span>
-    <button class="ch-vbtn" id="cvbOverlay" onclick="toggleChOverlay()" style="display:none;background:var(--ink3);border:1px solid var(--line);border-radius:var(--r);padding:5px 9px;font-size:11px;cursor:pointer;color:var(--t2);">🖊 Overlay</button>
-    <button class="tts-btn" id="ttsReaderBtn" onclick="ttsToggleReader()" title="อ่านออกเสียง" style="width:30px;height:30px;font-size:14px;flex-shrink:0;">🔊</button>
+    <button class="ch-vbtn" id="cvbOverlay" data-app-action="toggleOverlay" style="display:none;background:var(--ink3);border:1px solid var(--line);border-radius:var(--r);padding:5px 9px;font-size:11px;cursor:pointer;color:var(--t2);">🖊 Overlay</button>
+    <button class="tts-btn" id="ttsReaderBtn" data-app-action="ttsToggle" title="อ่านออกเสียง" style="width:30px;height:30px;font-size:14px;flex-shrink:0;">🔊</button>
     <div class="ch-view-toggle">
-      <button class="ch-vbtn on" id="cvbStack" onclick="setChView('stack')">📜 ซ้อน</button>
-      <button class="ch-vbtn"    id="cvbSplit" onclick="setChView('split')">⬛ Split</button>
+      <button class="ch-vbtn on" id="cvbStack" data-app-action="viewStack">📜 ซ้อน</button>
+      <button class="ch-vbtn"    id="cvbSplit" data-app-action="viewSplit">⬛ Split</button>
     </div>
   </div>
   <div class="ch-reader-scroll cr-stack" id="chReaderScroll"></div>
   <!-- TTS bar docked at bottom of reader -->
   <div class="tts-bar" id="ttsBarReader">
-    <div class="tts-prog-wrap" onclick="ttsSeek(event)"><div class="tts-prog" id="ttsProgReader"></div></div>
+    <div class="tts-prog-wrap" data-app-action="ttsSeek"><div class="tts-prog" id="ttsProgReader"></div></div>
     <div class="tts-main">
       <div class="tts-info">
         <div class="tts-pg" id="ttsPgReader">หน้า — / —</div>
@@ -1014,15 +1014,15 @@ select option{background:var(--ink2);}
           <option value="1.75">1.75×</option>
           <option value="2.0">2.0×</option>
         </select>
-        <button class="tts-btn" onclick="ttsSkip(-1)" title="หน้าก่อนหน้า">⏮</button>
-        <button class="tts-btn play" id="ttsPlayBtn" onclick="ttsPlayPause()">▶</button>
-        <button class="tts-btn" onclick="ttsSkip(1)" title="หน้าถัดไป">⏭</button>
-        <button class="tts-btn" onclick="ttsStop()" title="หยุด" style="font-size:12px;">⏹</button>
+        <button class="tts-btn" data-app-action="ttsPrev" title="หน้าก่อนหน้า">⏮</button>
+        <button class="tts-btn play" id="ttsPlayBtn" data-app-action="ttsPlay">▶</button>
+        <button class="tts-btn" data-app-action="ttsNext" title="หน้าถัดไป">⏭</button>
+        <button class="tts-btn" data-app-action="ttsStop" title="หยุด" style="font-size:12px;">⏹</button>
       </div>
     </div>
     <!-- Auto-scroll row -->
     <div class="tts-scroll-row" id="ttsScrollRow">
-      <button class="tts-btn" id="ttsScrollBtn" onclick="ttsToggleScroll()" title="เลื่อนหน้าจออัตโนมัติ" style="width:28px;height:28px;font-size:13px;">📜</button>
+      <button class="tts-btn" id="ttsScrollBtn" data-app-action="ttsScroll" title="เลื่อนหน้าจออัตโนมัติ" style="width:28px;height:28px;font-size:13px;">📜</button>
       <span style="font-family:var(--fM);font-size:9px;color:var(--t3);white-space:nowrap;">ความเร็ว</span>
       <input type="range" id="ttsScrollSpeed" min="10" max="200" value="50" step="5"
         style="flex:1;accent-color:var(--jade);height:3px;cursor:pointer;"
@@ -1100,7 +1100,75 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStatusBar();
   _updateNotifyBtn();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  _bindAppActions();
 });
+
+/* ── GLOBAL ACTION DISPATCHER (PWA-safe — no inline onclick) ── */
+function _bindAppActions() {
+  document.addEventListener('click', function(e) {
+    const el = e.target.closest('[data-app-action]');
+    if (!el) return;
+    const a = el.dataset.appAction;
+    switch(a) {
+      // Header
+      case 'clearAll':        clearAll(); break;
+      // Status bar / nav
+      case 'goSettings':      goPage('settings'); break;
+      case 'navTranslate':    goPage('translate'); break;
+      case 'navHistory':      goPage('history'); break;
+      case 'navSettings':     goPage('settings'); break;
+      // Lang
+      case 'swapLang':        swapLang(); break;
+      // Mode tabs
+      case 'modeUrl':         switchMode('url'); break;
+      case 'modeWeb':         switchMode('web'); break;
+      case 'modeMdex':        switchMode('mangadex'); break;
+      case 'modeFile':        switchMode('file'); break;
+      // Add images
+      case 'addUrls':         addUrlImages(); break;
+      case 'genKos':          genKingOfShojo(); break;
+      case 'scrapeWeb':       scrapeWeb(); break;
+      case 'fetchMdx':        fetchMangaDex(); break;
+      // Queue
+      case 'autoSort':        autoSortQueue(); break;
+      case 'clearDone':       clearDone(); break;
+      // Translate
+      case 'startTranslation': startTranslation(); break;
+      // Settings
+      case 'toggleApiKey':    toggleVis('apiKeyS'); break;
+      case 'testApiKey':      testApiKey(); break;
+      case 'saveSettings':    saveSettings(); break;
+      case 'installPWA':      installPWA(); break;
+      case 'notifyEnable':    notifyEnable(); break;
+      // Modal
+      case 'closeModal':      if(e.target===el) document.getElementById('modalBg').classList.remove('on'); break;
+      case 'copyModal':       copyModal(); break;
+      case 'closeModalBtn':   document.getElementById('modalBg').classList.remove('on'); break;
+      // Lightbox
+      case 'lbBg':            lbBgClick(e); break;
+      case 'closeLb':         closeLb(); break;
+      case 'lbPrev':          lbMove(-1); break;
+      case 'lbNext':          lbMove(1); break;
+      // Chapter reader
+      case 'closeReader':     closeChReader(); break;
+      case 'toggleOverlay':   toggleChOverlay(); break;
+      case 'ttsToggle':       ttsToggleReader(); break;
+      case 'viewStack':       setChView('stack'); break;
+      case 'viewSplit':       setChView('split'); break;
+      case 'ttsSeek':         ttsSeek(e); break;
+      case 'ttsPrev':         ttsSkip(-1); break;
+      case 'ttsPlay':         ttsPlayPause(); break;
+      case 'ttsNext':         ttsSkip(1); break;
+      case 'ttsStop':         ttsStop(); break;
+      case 'ttsScroll':       ttsToggleScroll(); break;
+    }
+  });
+
+  // ttsScrollSpeed uses oninput — bind via JS too
+  document.addEventListener('input', function(e) {
+    if (e.target.id === 'ttsScrollSpeed') ttsScrollSpeedChange(e.target.value);
+  });
+}
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault(); S.installEvt = e;
   document.getElementById('installBtn').style.display = 'flex';
@@ -1931,14 +1999,14 @@ function renderQueue() {
       <img class="qi-img" src="${esc(item.dataUrl || item.src)}" loading="lazy" onerror="this.style.display='none'">
       <div class="qi-foot">
         <div class="qi-move">
-          <button class="qi-mv" onclick="queueMoveItem(${item.id},-1)" ${idx===0?'disabled':''} title="ขึ้น">▲</button>
-          <button class="qi-mv" onclick="queueMoveItem(${item.id}, 1)" ${idx===n-1?'disabled':''} title="ลง">▼</button>
+          <button class="qi-mv" data-q-action="up" data-qid="${item.id}" ${idx===0?'disabled':''} title="ขึ้น">▲</button>
+          <button class="qi-mv" data-q-action="dn" data-qid="${item.id}" ${idx===n-1?'disabled':''} title="ลง">▼</button>
         </div>
         <span class="qi-name" style="color:var(--t3);font-size:9px;margin-right:-4px;">${idx+1}.</span>
         <div class="qi-dot ${item.status}"></div>
         <span class="qi-name">${esc(item.name)}</span>
-        ${item.status === 'done' ? `<button class="ibtn jade" style="font-size:10px;padding:3px 8px;" onclick="copyResult(${item.id})">📋</button>` : ''}
-        <button class="qi-rm" onclick="removeFromQueue(${item.id})">✕</button>
+        ${item.status === 'done' ? `<button class="ibtn jade" style="font-size:10px;padding:3px 8px;" data-q-action="copy" data-qid="${item.id}">📋</button>` : ''}
+        <button class="qi-rm" data-q-action="rm" data-qid="${item.id}">✕</button>
       </div>
       ${item.result ? `
         <div class="qi-result">
@@ -1947,6 +2015,21 @@ function renderQueue() {
         </div>` : ''}
       ${item.error ? `<div style="padding:8px 11px 10px;color:var(--red);font-size:12px;font-family:var(--fM);">❌ ${esc(item.error)}</div>` : ''}
     </div>`).join('');
+
+  // Bind queue item actions
+  const list_el = document.getElementById('queueList');
+  list_el.removeEventListener('click', list_el._qHandler);
+  list_el._qHandler = function(e) {
+    const btn = e.target.closest('[data-q-action]');
+    if (!btn) return;
+    const act = btn.dataset.qAction;
+    const qid = parseFloat(btn.dataset.qid);
+    if (act === 'up')   queueMoveItem(qid, -1);
+    if (act === 'dn')   queueMoveItem(qid,  1);
+    if (act === 'copy') copyResult(qid);
+    if (act === 'rm')   removeFromQueue(qid);
+  };
+  list_el.addEventListener('click', list_el._qHandler);
 }
 
 /* ── QUEUE REORDER ── */
