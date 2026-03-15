@@ -1022,6 +1022,14 @@ select option{background:var(--ink2);}
         <button class="tts-btn" data-app-action="ttsStop" title="หยุด" style="font-size:12px;">⏹</button>
       </div>
     </div>
+    <!-- Voice selector row -->
+    <div class="tts-scroll-row" id="ttsVoiceRow" style="display:none;">
+      <span style="font-family:var(--fM);font-size:9px;color:var(--t3);white-space:nowrap;flex-shrink:0;">🎙 เสียง</span>
+      <select id="ttsVoiceSel" class="tts-speed" style="flex:1;max-width:none;" data-app-action="ttsVoiceChange">
+        <option value="">— อัตโนมัติ —</option>
+      </select>
+      <button class="tts-btn" id="ttsVoiceRefresh" data-app-action="ttsVoiceRefresh" style="width:26px;height:26px;font-size:12px;" title="โหลด voice ใหม่">🔄</button>
+    </div>
     <!-- Auto-scroll row -->
     <div class="tts-scroll-row" id="ttsScrollRow">
       <button class="tts-btn" id="ttsScrollBtn" data-app-action="ttsScroll" title="เลื่อนรูปตามเสียงอ่าน" style="width:28px;height:28px;font-size:13px;">📜</button>
@@ -1165,6 +1173,8 @@ function _bindAppActions() {
       case 'ttsNext':         ttsSkip(1); break;
       case 'ttsStop':         ttsStop(); break;
       case 'ttsScroll':       ttsToggleScroll(); break;
+      case 'ttsVoiceChange':  ttsVoiceChange(el); break;
+      case 'ttsVoiceRefresh': ttsLoadVoices(); toast('โหลด voice ใหม่แล้ว', 'ok'); break;
     }
   });
 
@@ -1179,6 +1189,7 @@ function _bindAppActions() {
   document.addEventListener('change', function(e) {
     if (e.target.dataset.appAction === 'fileInput') handleFiles(e);
     if (e.target.dataset.appAction === 'ttsSpeedChange') ttsSetSpeed(e.target.value);
+    if (e.target.dataset.appAction === 'ttsVoiceChange') ttsVoiceChange(e.target);
   });
 
   // Global onerror for images via MutationObserver + event delegation
@@ -2378,17 +2389,18 @@ function isDarkColor(hex) {
    TTS ENGINE v3 — Fixed: no sound, too fast, cancel race condition
    ════════════════════════════════════════════ */
 const TTS = {
-  synth:   window.speechSynthesis || null,
-  voices:  [],
-  rate:    1.0,
-  pages:   [],
-  pi:      0,
-  lines:   [],
-  li:      0,
-  playing: false,
-  paused:  false,
-  lang:    'th-TH',
-  _timer:  null,
+  synth:         window.speechSynthesis || null,
+  voices:        [],
+  rate:          1.0,
+  pages:         [],
+  pi:            0,
+  lines:         [],
+  li:            0,
+  playing:       false,
+  paused:        false,
+  lang:          'th-TH',
+  _timer:        null,
+  selectedVoice: null, // null = auto-select best
 };
 
 const TTS_LANG = { th:'th-TH', en:'en-US', ja:'ja-JP', zh:'zh-CN', 'zh-TW':'zh-TW', ko:'ko-KR' };
@@ -2396,12 +2408,92 @@ const TTS_LANG = { th:'th-TH', en:'en-US', ja:'ja-JP', zh:'zh-CN', 'zh-TW':'zh-T
 function ttsLoadVoices() {
   if (!TTS.synth) return;
   TTS.voices = TTS.synth.getVoices();
-  if (TTS.synth.onvoiceschanged !== undefined)
-    TTS.synth.onvoiceschanged = () => { TTS.voices = TTS.synth.getVoices(); };
+  if (TTS.synth.onvoiceschanged !== undefined) {
+    TTS.synth.onvoiceschanged = () => {
+      TTS.voices = TTS.synth.getVoices();
+      _ttsPopulateVoiceSelector();
+    };
+  }
+  _ttsPopulateVoiceSelector();
+}
+
+function _ttsPopulateVoiceSelector() {
+  const sel = document.getElementById('ttsVoiceSel');
+  if (!sel || !TTS.voices.length) return;
+
+  // Show voice row now that we have voices
+  const row = document.getElementById('ttsVoiceRow');
+  if (row) row.style.display = 'flex';
+
+  // Group voices: current lang first, then others
+  const cur = TTS.lang;
+  const curLang = cur.split('-')[0];
+
+  // Guess gender from voice name keywords
+  const genderLabel = (name) => {
+    const n = name.toLowerCase();
+    if (/male|man|guy|boy|\bmale\b|david|mark|george|daniel|thomas|alex\b|diego|carlos/i.test(n)) return '♂ ';
+    if (/female|woman|girl|lady|zira|anna|helena|karen|susan|alice|amelie|sofia|nora/i.test(n)) return '♀ ';
+    return '';
+  };
+
+  const sameLang = TTS.voices.filter(v => v.lang.toLowerCase().startsWith(curLang));
+  const otherLang = TTS.voices.filter(v => !v.lang.toLowerCase().startsWith(curLang));
+
+  let html = '<option value="">— อัตโนมัติ —</option>';
+  if (sameLang.length) {
+    html += `<optgroup label="ภาษาปัจจุบัน (${cur})">`;
+    sameLang.forEach((v, i) => {
+      html += `<option value="${i}_same">${genderLabel(v.name)}${v.name} (${v.lang})</option>`;
+    });
+    html += '</optgroup>';
+  }
+  if (otherLang.length) {
+    html += '<optgroup label="ภาษาอื่น">';
+    otherLang.forEach((v, i) => {
+      html += `<option value="${i}_other">${genderLabel(v.name)}${v.name} (${v.lang})</option>`;
+    });
+    html += '</optgroup>';
+  }
+  sel.innerHTML = html;
+
+  // Restore saved selection
+  if (TTS.selectedVoice) {
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].text.includes(TTS.selectedVoice.name)) {
+        sel.selectedIndex = i; break;
+      }
+    }
+  }
+}
+
+function ttsVoiceChange(selEl) {
+  const val = selEl.value;
+  if (!val) { TTS.selectedVoice = null; toast('เสียง: อัตโนมัติ', 'inf'); return; }
+  const [idx, group] = val.split('_');
+  const curLang = TTS.lang.split('-')[0];
+  const pool = group === 'same'
+    ? TTS.voices.filter(v => v.lang.toLowerCase().startsWith(curLang))
+    : TTS.voices.filter(v => !v.lang.toLowerCase().startsWith(curLang));
+  const voice = pool[parseInt(idx)];
+  if (voice) {
+    TTS.selectedVoice = voice;
+    // Test the voice
+    if (TTS.synth) {
+      TTS.synth.cancel();
+      const test = new SpeechSynthesisUtterance('ทดสอบเสียง');
+      test.voice = voice; test.lang = voice.lang; test.rate = TTS.rate;
+      TTS.synth.speak(test);
+    }
+    toast(`🎙 เสียง: ${voice.name}`, 'ok');
+  }
 }
 
 function ttsBestVoice(lang) {
   if (!TTS.voices.length) ttsLoadVoices();
+  // Use manually selected voice if set
+  if (TTS.selectedVoice) return TTS.selectedVoice;
+  // Auto-select: exact lang match first
   let v = TTS.voices.find(v => v.lang === lang);
   if (!v) v = TTS.voices.find(v => v.lang.toLowerCase().startsWith(lang.split('-')[0].toLowerCase()));
   return v || null;
