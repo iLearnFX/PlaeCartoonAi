@@ -1648,13 +1648,13 @@ function showPreview(imgs, cid, pageReferer) {
           <div class="s-wrap">
             <img class="s-thumb sel"
               data-src="${esc(s)}"
+              data-fallback="${esc(s)}"
               data-idx="${i}"
               src="${esc(proxyImgSrc(s))}"
               loading="lazy"
               data-grid-action="open"
               data-cid="${cid}"
-              data-i="${i}"
-              onerror="this.src='${esc(s)}';this.onerror=null;">
+              data-i="${i}">
             <button class="s-del" title="ลบรูปนี้"
               data-grid-action="del" data-cid="${cid}" data-i="${i}">✕</button>
             <button class="s-sel-btn on" title="เลือก/ยกเลิก"
@@ -1668,9 +1668,16 @@ function showPreview(imgs, cid, pageReferer) {
           data-grid-action="addsel" data-cid="${cid}">➕ เพิ่มรูปที่เลือกเข้าคิว</button>
       </div>`;
 
-    // Bind events via delegation (PWA-safe, no inline onclick)
-    area.addEventListener('click', _gridClickHandler, { once: false });
-    // Remove duplicate listeners by replacing with fresh one
+    // Bind onerror via JS (not inline — CSP blocks inline onerror in PWA)
+    area.querySelectorAll('.s-thumb[data-fallback]').forEach(img => {
+      img.onerror = function() {
+        const fallback = this.dataset.fallback;
+        if (this.src !== fallback) { this.src = fallback; }
+        this.onerror = null;
+      };
+    });
+
+    // Bind click events via delegation (PWA-safe)
     area.removeEventListener('click', area._gridHandler);
     area._gridHandler = _gridClickHandler;
     area.addEventListener('click', area._gridHandler);
