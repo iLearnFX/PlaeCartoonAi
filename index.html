@@ -2601,14 +2601,10 @@ function ttsUpdateBar() {
   if (el_line) { el_line.textContent = (TTS.lines[TTS.li] || '').slice(0, 60) || '…'; el_line.className = 'tts-line speaking'; }
   if (el_prog) el_prog.style.width = (((TTS.pi + TTS.li / Math.max(TTS.lines.length, 1)) / total) * 100).toFixed(1) + '%';
 
-  // If auto-scroll is ON → let _autoScrollTick handle positioning
-  // If auto-scroll is OFF → scroll normally to show current page
+  // Scroll to current page only when auto-scroll is OFF
   if (!_scrollOn) {
     const crpg = document.getElementById(`crpg-${TTS.pi}`);
     if (crpg) crpg.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } else if (TTS.pi !== _scrollLastPi) {
-    // Page changed while scroll is on → retrigger scroll engine
-    _autoScrollTick();
   }
 
   const rbtn = document.getElementById('ttsReaderBtn');
@@ -2644,74 +2640,39 @@ function ttsClearHighlight() {
 
 document.addEventListener('DOMContentLoaded', ttsLoadVoices);
 
-/* ── AUTO SCROLL ENGINE v2 — Syncs with TTS current page ── */
-var _scrollTimer = null;
-var _scrollOn    = false;
-var _scrollPx    = 50;   // px/sec within current page image
-var _scrollLastPi = -1;  // last page index we scrolled to
+/* ── AUTO SCROLL ENGINE v3 — Pure continuous scroll, user-controlled speed ── */
+var _scrollTimer  = null;
+var _scrollOn     = false;
+var _scrollPx     = 30;   // px/sec
 
 function ttsToggleScroll() {
   _scrollOn = !_scrollOn;
   var btn = document.getElementById('ttsScrollBtn');
   if (btn) btn.classList.toggle('scroll-on', _scrollOn);
-  if (_scrollOn) {
-    _scrollLastPi = -1;
-    _autoScrollTick();
-  } else {
-    _autoScrollStop();
-  }
+  if (_scrollOn) _autoScrollStart();
+  else           _autoScrollStop();
 }
 
 function ttsScrollSpeedChange(val) {
   _scrollPx = parseInt(val);
   var lbl = document.getElementById('ttsScrollSpeedVal');
   if (lbl) lbl.textContent = val;
+  // Update speed live if already running
 }
 
-function _autoScrollStop() {
-  if (_scrollTimer) { cancelAnimationFrame(_scrollTimer); _scrollTimer = null; }
-}
-
-function _autoScrollTick() {
+function _autoScrollStart() {
   _autoScrollStop();
-  if (!_scrollOn || !TTS.playing) return;
-
   var scroll = document.getElementById('chReaderScroll');
   if (!scroll) return;
-
-  var pi = TTS.pi;
-
-  // If TTS moved to a new page → jump to that page's image top immediately
-  if (pi !== _scrollLastPi) {
-    _scrollLastPi = pi;
-    var crpg = document.getElementById('crpg-' + pi);
-    if (crpg) {
-      // Get image element in this page
-      var img = crpg.querySelector('.cr-page-img, .ov-wrap');
-      if (img) {
-        // Scroll so the image top is at the top of the reader
-        var readerTop = scroll.getBoundingClientRect().top;
-        var imgTop    = img.getBoundingClientRect().top;
-        scroll.scrollTop += (imgTop - readerTop);
-      } else {
-        crpg.scrollIntoView({ block: 'start' });
-      }
-    }
-  }
-
-  // Scroll down slowly through the current page image
   var last = performance.now();
   function step(now) {
-    if (!_scrollOn || !TTS.playing) return;
-
-    // If TTS changed page mid-scroll → restart tick to jump to new page
-    if (TTS.pi !== _scrollLastPi) { _autoScrollTick(); return; }
-
+    if (!_scrollOn) return;
     var dt = (now - last) / 1000;
     last = now;
     scroll.scrollTop += _scrollPx * dt;
-
-    // Stop at bottom
+    // Read speed live (slider may have changed)
+    var speedEl = document.getElementById('ttsScrollSpeed');
+    if (speedEl) _scrollPx = parseInt(speedEl.value) || _scrollPx;
     if (scroll.scrollTop >= scroll.scrollHeight - scroll.clientHeight - 2) {
       _scrollOn = false;
       var b = document.getElementById('ttsScrollBtn');
@@ -2721,6 +2682,10 @@ function _autoScrollTick() {
     _scrollTimer = requestAnimationFrame(step);
   }
   _scrollTimer = requestAnimationFrame(step);
+}
+
+function _autoScrollStop() {
+  if (_scrollTimer) { cancelAnimationFrame(_scrollTimer); _scrollTimer = null; }
 }
 
 // Show scroll row when TTS starts — patch ttsStop to hide it
@@ -3164,69 +3129,57 @@ async function renderOverlayCanvas(imgEl, bubblesData) {
     if (w < 5 || h < 5) continue;
 
     const bg = /^#[0-9a-f]{3,6}$/i.test(b.bg || '') ? b.bg : '#ffffff';
-    const radius = Math.min(w * 0.18, h * 0.18, 14);
+    const radius = Math.min(w * 0.2, h * 0.2, 12);
 
-    // --- Fill bubble with semi-transparent bg (85% opacity) ---
-    // This covers original text but doesn't fully block the image below
+    // Semi-transparent fill — 0.75 opacity so image shows through slightly
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, radius);
 
-    // Parse hex → rgba with 0.88 alpha
     const hex = bg.replace('#','');
-    const rr = parseInt(hex.length === 3 ? hex[0]+hex[0] : hex.slice(0,2), 16);
-    const gg = parseInt(hex.length === 3 ? hex[1]+hex[1] : hex.slice(2,4), 16);
-    const bb2= parseInt(hex.length === 3 ? hex[2]+hex[2] : hex.slice(4,6), 16);
-    ctx.fillStyle = `rgba(${rr},${gg},${bb2},0.88)`;
+    const rr  = parseInt(hex.length === 3 ? hex[0]+hex[0] : hex.slice(0,2), 16);
+    const gg  = parseInt(hex.length === 3 ? hex[1]+hex[1] : hex.slice(2,4), 16);
+    const bb2 = parseInt(hex.length === 3 ? hex[2]+hex[2] : hex.slice(4,6), 16);
+    ctx.fillStyle = `rgba(${rr},${gg},${bb2},0.78)`;
     ctx.fill();
-
-    // Subtle border matching bubble color (darker)
-    ctx.strokeStyle = `rgba(${Math.max(0,rr-40)},${Math.max(0,gg-40)},${Math.max(0,bb2-40)},0.5)`;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // No border — cleaner look
     ctx.restore();
 
-    // --- Render translated text WITHIN the bubble bounds ---
+    // --- Text — fit tightly inside bubble, no overflow ---
     const text = (b.text || '').trim();
     if (!text) continue;
 
-    // Tight padding — stay strictly inside bubble
-    const pad = Math.max(4, Math.min(w * 0.06, h * 0.08));
+    const pad     = Math.max(3, Math.min(w * 0.05, h * 0.06));
     const maxTxtW = w - pad * 2;
     const maxTxtH = h - pad * 2;
 
     const dark = isDarkColor(bg);
-    ctx.fillStyle = dark ? '#f5f5f5' : '#0d0d0d';
+    ctx.fillStyle = dark ? '#f0f0f0' : '#111111';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
 
-    // Binary search font size to fit perfectly
-    let fs = Math.min(Math.floor(h * 0.22), 18);
+    // Start small — max 16px, shrink until fits
+    let fs = Math.min(Math.floor(h * 0.18), 16);
     let lines = [];
-    while (fs >= 7) {
+    while (fs >= 6) {
       ctx.font = `600 ${fs}px "Noto Sans Thai","Noto Sans",sans-serif`;
       lines = wrapText(ctx, text, maxTxtW);
-      const totalH = lines.length * fs * 1.3;
-      if (totalH <= maxTxtH) break;
+      if (lines.length * fs * 1.25 <= maxTxtH) break;
       fs--;
     }
-    if (fs < 7) fs = 7;
+    if (fs < 6) { fs = 6; }
 
-    const lineH = fs * 1.3;
+    const lineH  = fs * 1.25;
     const totalH = lines.length * lineH;
-    // Center vertically inside bubble
-    const startY = y + (h - totalH) / 2 + fs;
+    const startY = y + (h - totalH) / 2 + fs * 0.85;
 
     ctx.font = `600 ${fs}px "Noto Sans Thai","Noto Sans",sans-serif`;
+    ctx.shadowBlur = 0; // no shadow — cleaner
     lines.forEach((line, li) => {
       const ly = startY + li * lineH;
-      // Clamp line to bubble bottom edge
-      if (ly > y + h - pad) return;
-      ctx.shadowColor = dark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)';
-      ctx.shadowBlur = 2;
+      if (ly > y + h - 2) return; // hard clamp
       ctx.fillText(line, x + w / 2, ly);
     });
-    ctx.shadowBlur = 0;
   }
 
   // Update / create badge
