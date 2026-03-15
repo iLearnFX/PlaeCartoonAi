@@ -1644,7 +1644,6 @@ function showPreview(imgs, cid, pageReferer) {
       </div>
       <div class="scrape-grid" id="sg-${cid}">
         ${list.map((s, i) => {
-          const fname = decodeURIComponent(s.split('/').pop().split('?')[0]).slice(0, 20);
           return `
           <div class="s-wrap">
             <img class="s-thumb sel"
@@ -1655,12 +1654,7 @@ function showPreview(imgs, cid, pageReferer) {
               data-grid-action="open"
               data-cid="${cid}"
               data-i="${i}"
-              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-            <div class="s-placeholder" style="display:none;">
-              <span class="s-ph-ico">🖼️</span>
-              <span>${esc(fname)}</span>
-              <span style="color:var(--red);font-size:8px;">โหลดไม่ได้</span>
-            </div>
+              onerror="this.src='${esc(s)}';this.onerror=null;">
             <button class="s-del" title="ลบรูปนี้"
               data-grid-action="del" data-cid="${cid}" data-i="${i}">✕</button>
             <button class="s-sel-btn on" title="เลือก/ยกเลิก"
