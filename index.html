@@ -426,35 +426,66 @@ select option{background:var(--ink2);}
 
 /* SCRAPE GRID */
 .scrape-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px;}
-.s-wrap{position:relative;aspect-ratio:2/3;}
-.s-thumb{aspect-ratio:2/3;object-fit:cover;border-radius:6px;border:2px solid var(--line2);cursor:pointer;transition:border-color .15s,opacity .15s;display:block;width:100%;height:100%;}
+.s-wrap{
+  position:relative;aspect-ratio:2/3;
+  background:var(--ink3);border-radius:6px;overflow:hidden;
+}
+.s-thumb{
+  aspect-ratio:2/3;object-fit:cover;border-radius:6px;
+  border:2px solid var(--line2);cursor:pointer;
+  transition:border-color .15s,opacity .15s;
+  display:block;width:100%;height:100%;
+}
 .s-thumb.sel{border-color:var(--jade);}
-.s-thumb:not(.sel){opacity:.45;}
+.s-thumb:not(.sel){opacity:.5;}
+
+/* Placeholder when image fails to load */
+.s-placeholder{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;
+  background:var(--ink3);border-radius:6px;
+  border:1px dashed var(--line2);
+  font-size:9px;color:var(--t3);font-family:var(--fM);
+  text-align:center;padding:4px;word-break:break-all;
+  pointer-events:none;
+}
+.s-placeholder .s-ph-ico{font-size:18px;}
+
+/* DELETE button — top right, always visible, high contrast */
 .s-del{
-  position:absolute;top:3px;right:3px;
-  width:22px;height:22px;border-radius:50%;
-  background:rgba(232,25,44,.92);border:none;
-  color:#fff;font-size:11px;line-height:1;
+  position:absolute;top:4px;right:4px;
+  width:24px;height:24px;border-radius:50%;
+  background:var(--red);border:2px solid #fff;
+  color:#fff;font-size:13px;font-weight:bold;line-height:1;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  /* Always visible — no hover needed on mobile */
-  opacity:1;z-index:2;
-  box-shadow:0 1px 5px rgba(0,0,0,.6);
+  z-index:10;
+  box-shadow:0 2px 6px rgba(0,0,0,.8);
 }
+.s-del:active{transform:scale(.9);}
+
+/* SELECT tick — bottom left, always visible */
 .s-sel-btn{
-  position:absolute;bottom:3px;left:3px;
-  width:22px;height:22px;border-radius:50%;
-  background:rgba(0,0,0,.6);border:2px solid rgba(255,255,255,.5);
-  color:rgba(255,255,255,.8);font-size:11px;font-weight:bold;
+  position:absolute;bottom:4px;left:4px;
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(20,20,30,.85);
+  border:2px solid rgba(255,255,255,.7);
+  color:rgba(255,255,255,.9);font-size:13px;font-weight:900;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  /* Always visible */
-  opacity:1;z-index:2;transition:background .15s;
+  z-index:10;transition:background .15s,border-color .15s;
+  box-shadow:0 2px 6px rgba(0,0,0,.8);
 }
-.s-sel-btn.on{background:var(--jade);border-color:var(--jade);color:var(--ink);}
+.s-sel-btn.on{
+  background:var(--jade);border-color:#fff;
+  color:var(--ink);
+}
+.s-sel-btn:active{transform:scale(.9);}
+
+/* Page number — bottom right, small */
 .s-num{
-  position:absolute;bottom:3px;right:4px;
+  position:absolute;bottom:4px;right:4px;
   font-family:var(--fM);font-size:9px;color:#fff;
-  background:rgba(0,0,0,.55);border-radius:3px;
-  padding:1px 4px;pointer-events:none;
+  background:rgba(0,0,0,.7);border-radius:3px;
+  padding:1px 5px;pointer-events:none;z-index:5;
 }
 
 /* LIGHTBOX */
@@ -1596,42 +1627,92 @@ function showPreview(imgs, cid, pageReferer) {
   const proxy = getProxy();
   const proxyImgSrc = (src) => proxy ? proxy + encodeURIComponent(src) : src;
 
-  // Store imgs list on the container element for lightbox access
   const area = document.getElementById(cid);
-  area._imgs = imgs.slice(); // keep a mutable copy for deletions
+  area._imgs = imgs.slice();
 
   const renderGrid = () => {
     const list = area._imgs;
     area.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-family:var(--fM);font-size:11px;color:var(--t2);" id="sg-count-${cid}">${list.length} รูป</span>
+        <span style="font-family:var(--fM);font-size:11px;color:var(--t2);">${list.length} รูป</span>
         <div style="display:flex;gap:6px;">
-          <button class="ibtn" style="font-size:10px;padding:3px 8px;" onclick="toggleAll('${cid}',true)">เลือกทั้งหมด</button>
-          <button class="ibtn" style="font-size:10px;padding:3px 8px;" onclick="toggleAll('${cid}',false)">ยกเลิก</button>
+          <button class="ibtn" style="font-size:10px;padding:3px 8px;"
+            data-grid-action="selall" data-cid="${cid}">เลือกทั้งหมด</button>
+          <button class="ibtn" style="font-size:10px;padding:3px 8px;"
+            data-grid-action="selnone" data-cid="${cid}">ยกเลิก</button>
         </div>
       </div>
       <div class="scrape-grid" id="sg-${cid}">
-        ${list.map((s, i) => `
+        ${list.map((s, i) => {
+          const fname = decodeURIComponent(s.split('/').pop().split('?')[0]).slice(0, 20);
+          return `
           <div class="s-wrap">
             <img class="s-thumb sel"
               data-src="${esc(s)}"
               data-idx="${i}"
               src="${esc(proxyImgSrc(s))}"
               loading="lazy"
-              onerror="this.src='${esc(s)}';this.onerror=null;"
-              onclick="openLb('${cid}', ${i})">
-            <button class="s-del" title="ลบรูปนี้" onclick="removeThumb('${cid}',${i})">✕</button>
-            <button class="s-sel-btn on" title="เลือก/ยกเลิก" onclick="toggleThumb(this)">✓</button>
+              data-grid-action="open"
+              data-cid="${cid}"
+              data-i="${i}"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <div class="s-placeholder" style="display:none;">
+              <span class="s-ph-ico">🖼️</span>
+              <span>${esc(fname)}</span>
+              <span style="color:var(--red);font-size:8px;">โหลดไม่ได้</span>
+            </div>
+            <button class="s-del" title="ลบรูปนี้"
+              data-grid-action="del" data-cid="${cid}" data-i="${i}">✕</button>
+            <button class="s-sel-btn on" title="เลือก/ยกเลิก"
+              data-grid-action="sel">✓</button>
             <span class="s-num">${i + 1}</span>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
       <div style="margin-top:10px;">
-        <button class="ibtn full red" onclick="addSelected('${cid}')">➕ เพิ่มรูปที่เลือกเข้าคิว</button>
+        <button class="ibtn full red"
+          data-grid-action="addsel" data-cid="${cid}">➕ เพิ่มรูปที่เลือกเข้าคิว</button>
       </div>`;
+
+    // Bind events via delegation (PWA-safe, no inline onclick)
+    area.addEventListener('click', _gridClickHandler, { once: false });
+    // Remove duplicate listeners by replacing with fresh one
+    area.removeEventListener('click', area._gridHandler);
+    area._gridHandler = _gridClickHandler;
+    area.addEventListener('click', area._gridHandler);
   };
 
   area._renderGrid = renderGrid;
   renderGrid();
+}
+
+function _gridClickHandler(e) {
+  const btn = e.target.closest('[data-grid-action]');
+  if (!btn) return;
+  const action = btn.dataset.gridAction;
+  const cid    = btn.dataset.cid;
+  const i      = parseInt(btn.dataset.i);
+
+  switch(action) {
+    case 'open':
+      openLb(cid, i);
+      break;
+    case 'del':
+      removeThumb(cid, i);
+      break;
+    case 'sel':
+      toggleThumb(btn);
+      break;
+    case 'selall':
+      toggleAll(cid, true);
+      break;
+    case 'selnone':
+      toggleAll(cid, false);
+      break;
+    case 'addsel':
+      addSelected(cid);
+      break;
+  }
 }
 
 /* ── THUMB DELETE ── */
