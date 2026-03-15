@@ -339,6 +339,12 @@ select option{background:var(--ink2);}
   background:rgba(0,200,150,.15)!important;
   border-left:3px solid var(--jade)!important;
 }
+.tts-scroll-row{
+  display:none;align-items:center;gap:8px;
+  padding:6px 14px 8px;border-top:1px solid var(--line);
+}
+.tts-scroll-row.on{ display:flex; }
+.tts-btn.scroll-on{ background:rgba(0,200,150,.2); border-color:var(--jade); color:var(--jade); }
 .toggle-switch{position:relative;display:inline-block;cursor:pointer;flex-shrink:0;}
 .toggle-switch input{display:none;}
 .ts-track{
@@ -983,6 +989,15 @@ select option{background:var(--ink2);}
         <button class="tts-btn" onclick="ttsSkip(1)" title="หน้าถัดไป">⏭</button>
         <button class="tts-btn" onclick="ttsStop()" title="หยุด" style="font-size:12px;">⏹</button>
       </div>
+    </div>
+    <!-- Auto-scroll row -->
+    <div class="tts-scroll-row" id="ttsScrollRow">
+      <button class="tts-btn" id="ttsScrollBtn" onclick="ttsToggleScroll()" title="เลื่อนหน้าจออัตโนมัติ" style="width:28px;height:28px;font-size:13px;">📜</button>
+      <span style="font-family:var(--fM);font-size:9px;color:var(--t3);white-space:nowrap;">ความเร็ว</span>
+      <input type="range" id="ttsScrollSpeed" min="10" max="200" value="50" step="5"
+        style="flex:1;accent-color:var(--jade);height:3px;cursor:pointer;"
+        oninput="ttsScrollSpeedChange(this.value)">
+      <span class="tts-speed" id="ttsScrollSpeedVal" style="min-width:32px;text-align:center;">50</span>
     </div>
   </div>
 </div>
@@ -2162,259 +2177,256 @@ function isDarkColor(hex) {
 }
 
 /* ════════════════════════════════════════════
-   TTS ENGINE v2 — แก้ปัญหาไม่มีเสียง / เร็วเกิน
+   TTS ENGINE v3 — Fixed: no sound, too fast, cancel race condition
    ════════════════════════════════════════════ */
 const TTS = {
-  synth:    window.speechSynthesis || null,
-  voices:   [],
-  rate:     1.0,
-  pages:    [],
-  pi:       0,
-  chunks:   [],
-  ci:       0,
-  playing:  false,
-  paused:   false,
-  lang:     'th-TH',
-  _dog:     null,
+  synth:   window.speechSynthesis || null,
+  voices:  [],
+  rate:    1.0,
+  pages:   [],
+  pi:      0,
+  lines:   [],
+  li:      0,
+  playing: false,
+  paused:  false,
+  lang:    'th-TH',
+  _timer:  null,
 };
 
 const TTS_LANG = { th:'th-TH', en:'en-US', ja:'ja-JP', zh:'zh-CN', 'zh-TW':'zh-TW', ko:'ko-KR' };
 
-function ttsInit() {
-  if (!TTS.synth) { toast('เบราว์เซอร์ไม่รองรับ TTS', 'err'); return false; }
+function ttsLoadVoices() {
+  if (!TTS.synth) return;
   TTS.voices = TTS.synth.getVoices();
   if (TTS.synth.onvoiceschanged !== undefined)
     TTS.synth.onvoiceschanged = () => { TTS.voices = TTS.synth.getVoices(); };
-  return true;
 }
 
 function ttsBestVoice(lang) {
-  const all = TTS.voices;
-  let v = all.find(v => v.lang === lang);
-  if (!v) v = all.find(v => v.lang.startsWith(lang.split('-')[0]));
+  if (!TTS.voices.length) ttsLoadVoices();
+  let v = TTS.voices.find(v => v.lang === lang);
+  if (!v) v = TTS.voices.find(v => v.lang.toLowerCase().startsWith(lang.split('-')[0].toLowerCase()));
   return v || null;
 }
 
 function ttsCleanText(raw) {
   return (raw || '')
-    .replace(/===.*?===/g, ' ')
-    .replace(/—\s*หน้า\s*\d+[^—]*—/g, ' ')
-    .replace(/\[bubble\s*\d+\]:\s*/gi, ' ')
-    .replace(/\[บอลลูน\s*\d+\]:\s*/gi, ' ')
-    .replace(/\[(SFX|คำบรรยาย|ป้าย|sign|caption|narration)\]:\s*/gi, ' ')
-    .replace(/\[.*?\]:\s*/g, ' ')
-    .replace(/\n+/g, ' ')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/===.*?===/g, '')
+    .replace(/—\s*\u0e2b\u0e19\u0e49\u0e32\s*\d+[^\u2014\n]*\u2014/g, '')
+    .replace(/\[bubble\s*\d+\]:\s*/gi, '')
+    .replace(/\[\u0e1a\u0e2d\u0e25\u0e25\u0e39\u0e19\s*\d+\]:\s*/gi, '')
+    .replace(/\[(SFX|\u0e04\u0e33\u0e1a\u0e23\u0e23\u0e22\u0e32\u0e22|\u0e1b\u0e49\u0e32\u0e22|sign|caption|narration)\]:\s*/gi, '')
+    .replace(/\[.*?\]:\s*/g, '')
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-function ttsMakeChunks(text, maxLen) {
-  maxLen = maxLen || 180;
-  if (!text || text.length < 3) return [];
-  // Split at sentence-ending punctuation
-  const segs = text.split(/(?<=[.!?。！？])\s*/).map(s => s.trim()).filter(Boolean);
+function ttsSplitSentences(text) {
+  if (!text.trim()) return [];
   const chunks = [];
-  let cur = '';
-  for (const seg of segs) {
-    if (cur.length + seg.length > maxLen && cur.length > 20) {
-      chunks.push(cur); cur = seg;
+  const paragraphs = text.split(/\n+/).map(s => s.trim()).filter(s => s);
+  for (const para of paragraphs) {
+    if (para.length <= 150) {
+      chunks.push(para);
     } else {
-      cur = cur ? cur + ' ' + seg : seg;
+      const parts = para.match(/.{1,150}/g) || [para];
+      chunks.push(...parts.map(s => s.trim()).filter(s => s));
     }
   }
-  if (cur.trim()) chunks.push(cur.trim());
-  return chunks.length ? chunks : [text.slice(0, maxLen)];
+  return chunks;
 }
 
-function ttsBuildSession(si) {
+function _ttsSpeak() {
+  if (!TTS.synth || !TTS.playing) return;
+
+  if (TTS.li >= TTS.lines.length) {
+    TTS.pi++;
+    if (TTS.pi >= TTS.pages.length) { ttsStop(); toast('\u0e2d\u0e48\u0e32\u0e19\u0e08\u0e1a\u0e41\u0e25\u0e49\u0e27 \u2713', 'ok'); return; }
+    _ttsLoadPage();
+    return;
+  }
+
+  const text = TTS.lines[TTS.li];
+  if (!text || !text.trim()) { TTS.li++; _ttsSpeak(); return; }
+
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang   = TTS.lang;
+  utt.rate   = TTS.rate;
+  utt.pitch  = 1.0;
+  utt.volume = 1.0;
+
+  const voice = ttsBestVoice(TTS.lang);
+  if (voice) utt.voice = voice;
+
+  utt.onstart = () => { ttsUpdateBar(); ttsHighlight(); };
+
+  utt.onend = () => {
+    if (!TTS.playing) return;
+    TTS.li++;
+    _ttsSpeak();
+  };
+
+  utt.onerror = (e) => {
+    if (e.error === 'interrupted' || e.error === 'canceled') return;
+    TTS.li++;
+    TTS._timer = setTimeout(_ttsSpeak, 150);
+  };
+
+  TTS.synth.speak(utt);
+}
+
+function _ttsLoadPage() {
+  if (TTS.pi >= TTS.pages.length) { ttsStop(); return; }
+  const page = TTS.pages[TTS.pi];
+  TTS.lines = ttsSplitSentences(page.text);
+  TTS.li = 0;
+  document.getElementById('ttsBarReader').classList.add('on');
+  ttsUpdateBar();
+  ttsUpdatePlayBtn();
+  _ttsSpeak();
+}
+
+function _ttsPrepare(si, startPi) {
   const session = S.history[si];
-  if (!session || !session.pages || !session.pages.length) return false;
+  if (!session?.pages?.length) return false;
   TTS.lang  = TTS_LANG[session.tgt || 'th'] || 'th-TH';
   TTS.pages = session.pages
-    .map(function(p) { return { pageNum: p.pageNum, text: ttsCleanText(p.result) }; })
-    .filter(function(p) { return p.text.length > 2; });
+    .map(p => ({ pageNum: p.pageNum, text: ttsCleanText(p.result) }))
+    .filter(p => p.text.trim());
+  TTS.pi    = Math.max(0, Math.min(startPi || 0, TTS.pages.length - 1));
   return TTS.pages.length > 0;
 }
 
+/* ── Public functions — MUST be called from user click events ── */
 function ttsReadSession(si) {
-  if (!ttsInit()) return;
-  if (!ttsBuildSession(si)) { toast('ไม่มีข้อความสำหรับอ่าน', 'err'); return; }
-  ttsStop();
+  if (!TTS.synth) { toast('\u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e44\u0e21\u0e48\u0e23\u0e2d\u0e07\u0e23\u0e31\u0e1a TTS', 'err'); return; }
+  ttsLoadVoices();
+  clearTimeout(TTS._timer);
+  TTS.synth.cancel();
+  TTS.playing = false; TTS.paused = false;
+
+  if (!_ttsPrepare(si, 0)) { toast('\u0e44\u0e21\u0e48\u0e21\u0e35\u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21', 'err'); return; }
+
   openChReader(si, 0);
-  TTS.pi = 0;
-  setTimeout(function() { ttsBeginPage(); }, 400);
+  TTS.playing = true;
+  TTS._timer = setTimeout(_ttsLoadPage, 500);
 }
 
 function ttsToggleReader() {
-  if (!ttsInit()) return;
-  if (TTS.playing || TTS.paused) { ttsPlayPause(); return; }
-  if (!ttsBuildSession(_cr.si)) { toast('ไม่มีข้อความ', 'err'); return; }
-  ttsStop();
-  TTS.pi = Math.max(0, _cr.pi);
-  setTimeout(function() { ttsBeginPage(); }, 150);
-}
+  if (!TTS.synth) { toast('\u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e44\u0e21\u0e48\u0e23\u0e2d\u0e07\u0e23\u0e31\u0e1a TTS', 'err'); return; }
+  ttsLoadVoices();
 
-function ttsBeginPage() {
-  if (TTS.pi >= TTS.pages.length) { ttsStop(); toast('อ่านจบแล้ว ✓', 'ok'); return; }
-  var page = TTS.pages[TTS.pi];
-  TTS.chunks = ttsMakeChunks(page.text);
-  TTS.ci = 0;
-  TTS.playing = true;
-  document.getElementById('ttsBarReader').classList.add('on');
-  ttsUpdateBar();
-  ttsSpeakChunk();
-}
+  if (TTS.paused) {
+    TTS.synth.resume(); TTS.paused = false; TTS.playing = true;
+    ttsUpdatePlayBtn(); return;
+  }
+  if (TTS.playing) {
+    TTS.synth.pause(); TTS.paused = true; TTS.playing = false;
+    ttsUpdatePlayBtn(); return;
+  }
 
-function ttsSpeakChunk() {
-  clearTimeout(TTS._dog);
-  if (!TTS.playing) return;
-  if (TTS.ci >= TTS.chunks.length) { TTS.pi++; ttsBeginPage(); return; }
-
-  var text = TTS.chunks[TTS.ci];
-  if (!text || !text.trim()) { TTS.ci++; ttsSpeakChunk(); return; }
-
-  // cancel any previous + wait 80ms (Chrome Android fix)
+  clearTimeout(TTS._timer);
   TTS.synth.cancel();
-  setTimeout(function() {
-    if (!TTS.playing) return;
-
-    var utt = new SpeechSynthesisUtterance(text);
-    utt.lang   = TTS.lang;
-    utt.rate   = TTS.rate;
-    utt.pitch  = 1.0;
-    utt.volume = 1.0;
-    var voice = ttsBestVoice(TTS.lang);
-    if (voice) utt.voice = voice;
-
-    utt.onstart = function() {
-      ttsUpdateBar();
-      ttsUpdatePlayBtn();
-      // watchdog: force-advance if onend never fires
-      TTS._dog = setTimeout(function() {
-        if (TTS.playing) { TTS.ci++; ttsSpeakChunk(); }
-      }, 25000);
-    };
-
-    utt.onend = function() {
-      clearTimeout(TTS._dog);
-      if (!TTS.playing) return;
-      TTS.ci++;
-      ttsSpeakChunk();
-    };
-
-    utt.onerror = function(e) {
-      clearTimeout(TTS._dog);
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      TTS.ci++;
-      setTimeout(function() { ttsSpeakChunk(); }, 200);
-    };
-
-    TTS.paused = false;
-    TTS.synth.speak(utt);
-    ttsUpdatePlayBtn();
-  }, 80);
+  if (!_ttsPrepare(_cr.si, _cr.pi)) { toast('\u0e44\u0e21\u0e48\u0e21\u0e35\u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21', 'err'); return; }
+  TTS.playing = true;
+  TTS._timer = setTimeout(_ttsLoadPage, 500);
 }
 
 function ttsPlayPause() {
   if (!TTS.synth) return;
   if (!TTS.playing && !TTS.paused) { ttsToggleReader(); return; }
   if (TTS.paused) {
-    // resume is unreliable on Android — re-speak current chunk instead
-    TTS.paused  = false;
-    TTS.playing = true;
-    setTimeout(function() { ttsSpeakChunk(); }, 100);
+    TTS.synth.resume(); TTS.paused = false; TTS.playing = true;
   } else {
-    clearTimeout(TTS._dog);
-    TTS.synth.cancel();
-    TTS.paused  = true;
-    TTS.playing = false;
+    TTS.synth.pause(); TTS.paused = true; TTS.playing = false;
   }
   ttsUpdatePlayBtn();
 }
 
 function ttsStop() {
-  clearTimeout(TTS._dog);
+  clearTimeout(TTS._timer);
   if (TTS.synth) TTS.synth.cancel();
   TTS.playing = TTS.paused = false;
   ttsClearHighlight();
-  var bar = document.getElementById('ttsBarReader');
+  const bar = document.getElementById('ttsBarReader');
   if (bar) bar.classList.remove('on');
-  var btn = document.getElementById('ttsReaderBtn');
+  const btn = document.getElementById('ttsReaderBtn');
   if (btn) btn.style.color = '';
   ttsUpdatePlayBtn();
-  var prog = document.getElementById('ttsProgReader');
+  const prog = document.getElementById('ttsProgReader');
   if (prog) prog.style.width = '0%';
-  var line = document.getElementById('ttsLineReader');
-  if (line) { line.textContent = 'กด 🔊 เพื่อเริ่มอ่าน'; line.className = 'tts-line'; }
+  const ln = document.getElementById('ttsLineReader');
+  if (ln) { ln.textContent = '\u0e01\u0e14 \ud83d\udd0a \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e40\u0e23\u0e34\u0e48\u0e21\u0e2d\u0e48\u0e32\u0e19'; ln.className = 'tts-line'; }
 }
 
 function ttsSkip(dir) {
-  clearTimeout(TTS._dog);
-  TTS.synth.cancel();
+  clearTimeout(TTS._timer);
+  TTS.synth?.cancel();
   TTS.pi = Math.max(0, Math.min(TTS.pages.length - 1, TTS.pi + dir));
+  if (!TTS.pages.length) return;
   TTS.playing = true;
-  setTimeout(function() { ttsBeginPage(); }, 100);
+  TTS._timer = setTimeout(_ttsLoadPage, 500);
 }
 
 function ttsSetSpeed(val) {
   TTS.rate = parseFloat(val);
-  var sel = document.getElementById('ttsSpeedSel');
+  const sel = document.getElementById('ttsSpeedSel');
   if (sel) sel.value = val;
   if (TTS.playing) {
-    clearTimeout(TTS._dog);
+    clearTimeout(TTS._timer);
     TTS.synth.cancel();
-    setTimeout(function() { ttsSpeakChunk(); }, 100);
+    TTS._timer = setTimeout(_ttsSpeak, 300);
   }
 }
 
 function ttsSeek(e) {
-  var rect = e.currentTarget.getBoundingClientRect();
-  var pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  clearTimeout(TTS._dog);
-  TTS.synth.cancel();
-  TTS.pi = Math.min(TTS.pages.length - 1, Math.floor(pct * TTS.pages.length));
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  clearTimeout(TTS._timer);
+  TTS.synth?.cancel();
+  TTS.pi = Math.min(Math.floor(pct * TTS.pages.length), TTS.pages.length - 1);
+  TTS.li = 0;
+  if (!TTS.pages.length) return;
   TTS.playing = true;
-  setTimeout(function() { ttsBeginPage(); }, 100);
+  TTS._timer = setTimeout(_ttsLoadPage, 500);
 }
 
+/* ── UI ── */
 function ttsUpdateBar() {
-  var page  = TTS.pages[TTS.pi];
-  var total = TTS.pages.length;
+  const page  = TTS.pages[TTS.pi];
+  const total = TTS.pages.length;
   if (!page) return;
-  var pg   = document.getElementById('ttsPgReader');
-  var line = document.getElementById('ttsLineReader');
-  var prog = document.getElementById('ttsProgReader');
-  if (pg)   pg.textContent  = 'หน้า ' + page.pageNum + ' / ' + (TTS.pages[total-1] ? TTS.pages[total-1].pageNum : '?');
-  var preview = (TTS.chunks[TTS.ci] || '').slice(0, 55);
-  if (line) { line.textContent = preview || '…'; line.className = 'tts-line speaking'; }
-  if (prog) prog.style.width = ((TTS.pi / Math.max(total,1)) * 100).toFixed(1) + '%';
-  var crpg = document.getElementById('crpg-' + TTS.pi);
+  const el_pg   = document.getElementById('ttsPgReader');
+  const el_line = document.getElementById('ttsLineReader');
+  const el_prog = document.getElementById('ttsProgReader');
+  if (el_pg)   el_pg.textContent  = `\u0e2b\u0e19\u0e49\u0e32 ${page.pageNum} / ${TTS.pages[total-1]?.pageNum || '?'}`;
+  if (el_line) { el_line.textContent = (TTS.lines[TTS.li] || '').slice(0, 60) || '\u2026'; el_line.className = 'tts-line speaking'; }
+  if (el_prog) el_prog.style.width = (((TTS.pi + TTS.li / Math.max(TTS.lines.length, 1)) / total) * 100).toFixed(1) + '%';
+  const crpg = document.getElementById(`crpg-${TTS.pi}`);
   if (crpg) crpg.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  var rb = document.getElementById('ttsReaderBtn');
-  if (rb) rb.style.color = 'var(--jade)';
+  const rbtn = document.getElementById('ttsReaderBtn');
+  if (rbtn) rbtn.style.color = 'var(--jade)';
 }
 
 function ttsUpdatePlayBtn() {
-  var btn = document.getElementById('ttsPlayBtn');
+  const btn = document.getElementById('ttsPlayBtn');
   if (!btn) return;
-  if (TTS.paused)       { btn.textContent = '▶'; btn.classList.remove('pause-state'); }
-  else if (TTS.playing) { btn.textContent = '⏸'; btn.classList.add('pause-state');    }
-  else                  { btn.textContent = '▶'; btn.classList.remove('pause-state'); }
+  if (TTS.paused) { btn.textContent = '\u25b6'; btn.classList.remove('pause-state'); }
+  else if (TTS.playing) { btn.textContent = '\u23f8'; btn.classList.add('pause-state'); }
+  else { btn.textContent = '\u25b6'; btn.classList.remove('pause-state'); }
 }
 
-var _ttsHighEl = null;
+let _ttsHighEl = null;
 function ttsHighlight() {
   ttsClearHighlight();
-  var scroll = document.getElementById('chReaderScroll');
+  const scroll = document.getElementById('chReaderScroll');
   if (!scroll) return;
-  var needle = (TTS.chunks[TTS.ci] || '').slice(0, 10);
+  const needle = (TTS.lines[TTS.li] || '').slice(0, 15);
   if (!needle) return;
-  var els = scroll.querySelectorAll('.cr-page-txt');
-  for (var i = 0; i < els.length; i++) {
-    if (els[i].textContent.indexOf(needle) >= 0) {
-      els[i].classList.add('tts-highlight');
-      _ttsHighEl = els[i];
-      els[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  for (const el of scroll.querySelectorAll('.cr-page-txt')) {
+    if (el.textContent.includes(needle)) {
+      el.classList.add('tts-highlight'); _ttsHighEl = el;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       break;
     }
   }
@@ -2423,7 +2435,70 @@ function ttsClearHighlight() {
   if (_ttsHighEl) { _ttsHighEl.classList.remove('tts-highlight'); _ttsHighEl = null; }
 }
 
-document.addEventListener('DOMContentLoaded', ttsInit);
+document.addEventListener('DOMContentLoaded', ttsLoadVoices);
+
+/* ── AUTO SCROLL ENGINE ── */
+var _scrollTimer = null;
+var _scrollOn    = false;
+var _scrollPx    = 50;
+
+function ttsToggleScroll() {
+  _scrollOn = !_scrollOn;
+  var btn = document.getElementById('ttsScrollBtn');
+  if (btn) btn.classList.toggle('scroll-on', _scrollOn);
+  if (_scrollOn) { _autoScrollStart(); }
+  else           { _autoScrollStop();  }
+}
+
+function ttsScrollSpeedChange(val) {
+  _scrollPx = parseInt(val);
+  var lbl = document.getElementById('ttsScrollSpeedVal');
+  if (lbl) lbl.textContent = val;
+  if (_scrollOn) { _autoScrollStop(); _autoScrollStart(); }
+}
+
+function _autoScrollStart() {
+  _autoScrollStop();
+  var scroll = document.getElementById('chReaderScroll');
+  if (!scroll) return;
+  var last = performance.now();
+  function step(now) {
+    if (!_scrollOn) return;
+    var dt = (now - last) / 1000;
+    last = now;
+    scroll.scrollTop += _scrollPx * dt;
+    if (scroll.scrollTop >= scroll.scrollHeight - scroll.clientHeight - 2) {
+      _scrollOn = false;
+      var b = document.getElementById('ttsScrollBtn');
+      if (b) b.classList.remove('scroll-on');
+      return;
+    }
+    _scrollTimer = requestAnimationFrame(step);
+  }
+  _scrollTimer = requestAnimationFrame(step);
+}
+
+function _autoScrollStop() {
+  if (_scrollTimer) { cancelAnimationFrame(_scrollTimer); _scrollTimer = null; }
+}
+
+// Hook into ttsBarReader show/hide
+var _origTtsStop = ttsStop;
+ttsStop = function() {
+  _autoScrollStop(); _scrollOn = false;
+  var btn = document.getElementById('ttsScrollBtn');
+  if (btn) btn.classList.remove('scroll-on');
+  var row = document.getElementById('ttsScrollRow');
+  if (row) row.classList.remove('on');
+  _origTtsStop();
+};
+
+var _origTtsBeginPage = ttsBeginPage;
+ttsBeginPage = function() {
+  var row = document.getElementById('ttsScrollRow');
+  if (row) row.classList.add('on');
+  _origTtsBeginPage();
+};
 
 
 function setLoading(on) {
@@ -2694,7 +2769,6 @@ async function renderOverlayCanvas(imgEl, bubblesData) {
   const bubbles = bubblesData.bubbles;
 
   for (const b of bubbles) {
-    // Coordinates are % of image → convert to pixels
     const x = (b.x / 100) * iw;
     const y = (b.y / 100) * ih;
     const w = (b.w / 100) * iw;
@@ -2702,51 +2776,66 @@ async function renderOverlayCanvas(imgEl, bubblesData) {
     if (w < 5 || h < 5) continue;
 
     const bg = /^#[0-9a-f]{3,6}$/i.test(b.bg || '') ? b.bg : '#ffffff';
-    const radius = Math.min(w * 0.15, h * 0.15, 16);
+    const radius = Math.min(w * 0.18, h * 0.18, 14);
 
-    // --- Fill bubble background to erase original text ---
+    // --- Fill bubble with semi-transparent bg (85% opacity) ---
+    // This covers original text but doesn't fully block the image below
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, radius);
-    ctx.fillStyle = bg;
+
+    // Parse hex → rgba with 0.88 alpha
+    const hex = bg.replace('#','');
+    const rr = parseInt(hex.length === 3 ? hex[0]+hex[0] : hex.slice(0,2), 16);
+    const gg = parseInt(hex.length === 3 ? hex[1]+hex[1] : hex.slice(2,4), 16);
+    const bb2= parseInt(hex.length === 3 ? hex[2]+hex[2] : hex.slice(4,6), 16);
+    ctx.fillStyle = `rgba(${rr},${gg},${bb2},0.88)`;
     ctx.fill();
-    // Soft inner shadow to blend edges
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-    ctx.lineWidth = 1.5;
+
+    // Subtle border matching bubble color (darker)
+    ctx.strokeStyle = `rgba(${Math.max(0,rr-40)},${Math.max(0,gg-40)},${Math.max(0,bb2-40)},0.5)`;
+    ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
 
-    // --- Render translated text ---
+    // --- Render translated text WITHIN the bubble bounds ---
     const text = (b.text || '').trim();
     if (!text) continue;
 
-    const pad = Math.max(5, w * 0.07);
+    // Tight padding — stay strictly inside bubble
+    const pad = Math.max(4, Math.min(w * 0.06, h * 0.08));
     const maxTxtW = w - pad * 2;
+    const maxTxtH = h - pad * 2;
+
     const dark = isDarkColor(bg);
-    ctx.fillStyle = dark ? '#f0f0f0' : '#111111';
+    ctx.fillStyle = dark ? '#f5f5f5' : '#0d0d0d';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textBaseline = 'alphabetic';
 
-    // Find font size that fits
-    let fs = Math.min(Math.floor(h * 0.25), 20);
+    // Binary search font size to fit perfectly
+    let fs = Math.min(Math.floor(h * 0.22), 18);
     let lines = [];
-    for (; fs >= 8; fs--) {
-      ctx.font = `600 ${fs}px "Noto Sans Thai", "Noto Sans", sans-serif`;
+    while (fs >= 7) {
+      ctx.font = `600 ${fs}px "Noto Sans Thai","Noto Sans",sans-serif`;
       lines = wrapText(ctx, text, maxTxtW);
-      const totalH = lines.length * fs * 1.35;
-      if (totalH <= h - pad * 2) break;
+      const totalH = lines.length * fs * 1.3;
+      if (totalH <= maxTxtH) break;
+      fs--;
     }
+    if (fs < 7) fs = 7;
 
-    const lineH = fs * 1.35;
+    const lineH = fs * 1.3;
     const totalH = lines.length * lineH;
-    const startY = y + h / 2 - totalH / 2 + lineH / 2;
+    // Center vertically inside bubble
+    const startY = y + (h - totalH) / 2 + fs;
 
-    ctx.font = `600 ${fs}px "Noto Sans Thai", "Noto Sans", sans-serif`;
+    ctx.font = `600 ${fs}px "Noto Sans Thai","Noto Sans",sans-serif`;
     lines.forEach((line, li) => {
       const ly = startY + li * lineH;
-      // Shadow for readability
-      ctx.shadowColor = dark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.8)';
-      ctx.shadowBlur = 3;
+      // Clamp line to bubble bottom edge
+      if (ly > y + h - pad) return;
+      ctx.shadowColor = dark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)';
+      ctx.shadowBlur = 2;
       ctx.fillText(line, x + w / 2, ly);
     });
     ctx.shadowBlur = 0;
