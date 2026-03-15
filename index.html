@@ -1024,12 +1024,11 @@ select option{background:var(--ink2);}
     </div>
     <!-- Auto-scroll row -->
     <div class="tts-scroll-row" id="ttsScrollRow">
-      <button class="tts-btn" id="ttsScrollBtn" data-app-action="ttsScroll" title="เลื่อนหน้าจออัตโนมัติ" style="width:28px;height:28px;font-size:13px;">📜</button>
-      <span style="font-family:var(--fM);font-size:9px;color:var(--t3);white-space:nowrap;">ความเร็ว</span>
-      <input type="range" id="ttsScrollSpeed" min="10" max="200" value="50" step="5"
-        style="flex:1;accent-color:var(--jade);height:3px;cursor:pointer;"
-        id="ttsScrollSpeed">
-      <span class="tts-speed" id="ttsScrollSpeedVal" style="min-width:32px;text-align:center;">50</span>
+      <button class="tts-btn" id="ttsScrollBtn" data-app-action="ttsScroll" title="เลื่อนรูปตามเสียงอ่าน" style="width:28px;height:28px;font-size:13px;">📜</button>
+      <span style="font-family:var(--fM);font-size:9px;color:var(--t3);white-space:nowrap;">เลื่อนรูป</span>
+      <input type="range" id="ttsScrollSpeed" min="5" max="150" value="30" step="5"
+        style="flex:1;accent-color:var(--jade);height:3px;cursor:pointer;">
+      <span class="tts-speed" id="ttsScrollSpeedVal" style="min-width:32px;text-align:center;">30</span>
     </div>
   </div>
 </div>
@@ -2598,11 +2597,20 @@ function ttsUpdateBar() {
   const el_pg   = document.getElementById('ttsPgReader');
   const el_line = document.getElementById('ttsLineReader');
   const el_prog = document.getElementById('ttsProgReader');
-  if (el_pg)   el_pg.textContent  = `\u0e2b\u0e19\u0e49\u0e32 ${page.pageNum} / ${TTS.pages[total-1]?.pageNum || '?'}`;
-  if (el_line) { el_line.textContent = (TTS.lines[TTS.li] || '').slice(0, 60) || '\u2026'; el_line.className = 'tts-line speaking'; }
+  if (el_pg)   el_pg.textContent  = `หน้า ${page.pageNum} / ${TTS.pages[total-1]?.pageNum || '?'}`;
+  if (el_line) { el_line.textContent = (TTS.lines[TTS.li] || '').slice(0, 60) || '…'; el_line.className = 'tts-line speaking'; }
   if (el_prog) el_prog.style.width = (((TTS.pi + TTS.li / Math.max(TTS.lines.length, 1)) / total) * 100).toFixed(1) + '%';
-  const crpg = document.getElementById(`crpg-${TTS.pi}`);
-  if (crpg) crpg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // If auto-scroll is ON → let _autoScrollTick handle positioning
+  // If auto-scroll is OFF → scroll normally to show current page
+  if (!_scrollOn) {
+    const crpg = document.getElementById(`crpg-${TTS.pi}`);
+    if (crpg) crpg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (TTS.pi !== _scrollLastPi) {
+    // Page changed while scroll is on → retrigger scroll engine
+    _autoScrollTick();
+  }
+
   const rbtn = document.getElementById('ttsReaderBtn');
   if (rbtn) rbtn.style.color = 'var(--jade)';
 }
@@ -2636,36 +2644,74 @@ function ttsClearHighlight() {
 
 document.addEventListener('DOMContentLoaded', ttsLoadVoices);
 
-/* ── AUTO SCROLL ENGINE ── */
+/* ── AUTO SCROLL ENGINE v2 — Syncs with TTS current page ── */
 var _scrollTimer = null;
 var _scrollOn    = false;
-var _scrollPx    = 50;
+var _scrollPx    = 50;   // px/sec within current page image
+var _scrollLastPi = -1;  // last page index we scrolled to
 
 function ttsToggleScroll() {
   _scrollOn = !_scrollOn;
   var btn = document.getElementById('ttsScrollBtn');
   if (btn) btn.classList.toggle('scroll-on', _scrollOn);
-  if (_scrollOn) { _autoScrollStart(); }
-  else           { _autoScrollStop();  }
+  if (_scrollOn) {
+    _scrollLastPi = -1;
+    _autoScrollTick();
+  } else {
+    _autoScrollStop();
+  }
 }
 
 function ttsScrollSpeedChange(val) {
   _scrollPx = parseInt(val);
   var lbl = document.getElementById('ttsScrollSpeedVal');
   if (lbl) lbl.textContent = val;
-  if (_scrollOn) { _autoScrollStop(); _autoScrollStart(); }
 }
 
-function _autoScrollStart() {
+function _autoScrollStop() {
+  if (_scrollTimer) { cancelAnimationFrame(_scrollTimer); _scrollTimer = null; }
+}
+
+function _autoScrollTick() {
   _autoScrollStop();
+  if (!_scrollOn || !TTS.playing) return;
+
   var scroll = document.getElementById('chReaderScroll');
   if (!scroll) return;
+
+  var pi = TTS.pi;
+
+  // If TTS moved to a new page → jump to that page's image top immediately
+  if (pi !== _scrollLastPi) {
+    _scrollLastPi = pi;
+    var crpg = document.getElementById('crpg-' + pi);
+    if (crpg) {
+      // Get image element in this page
+      var img = crpg.querySelector('.cr-page-img, .ov-wrap');
+      if (img) {
+        // Scroll so the image top is at the top of the reader
+        var readerTop = scroll.getBoundingClientRect().top;
+        var imgTop    = img.getBoundingClientRect().top;
+        scroll.scrollTop += (imgTop - readerTop);
+      } else {
+        crpg.scrollIntoView({ block: 'start' });
+      }
+    }
+  }
+
+  // Scroll down slowly through the current page image
   var last = performance.now();
   function step(now) {
-    if (!_scrollOn) return;
+    if (!_scrollOn || !TTS.playing) return;
+
+    // If TTS changed page mid-scroll → restart tick to jump to new page
+    if (TTS.pi !== _scrollLastPi) { _autoScrollTick(); return; }
+
     var dt = (now - last) / 1000;
     last = now;
     scroll.scrollTop += _scrollPx * dt;
+
+    // Stop at bottom
     if (scroll.scrollTop >= scroll.scrollHeight - scroll.clientHeight - 2) {
       _scrollOn = false;
       var b = document.getElementById('ttsScrollBtn');
@@ -2675,10 +2721,6 @@ function _autoScrollStart() {
     _scrollTimer = requestAnimationFrame(step);
   }
   _scrollTimer = requestAnimationFrame(step);
-}
-
-function _autoScrollStop() {
-  if (_scrollTimer) { cancelAnimationFrame(_scrollTimer); _scrollTimer = null; }
 }
 
 // Show scroll row when TTS starts — patch ttsStop to hide it
