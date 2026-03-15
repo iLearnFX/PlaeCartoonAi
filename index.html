@@ -806,7 +806,7 @@ select option{background:var(--ink2);}
         <!-- FILE -->
         <div class="mpanel" id="mp-file">
           <div class="drop-zone" id="dropZone">
-            <input type="file" accept="image/*" multiple onchange="handleFiles(event)">
+            <input type="file" accept="image/*" multiple data-app-action="fileInput" id="fileInput">
             <div class="d-ico">🖼️</div>
             <div class="d-txt">แตะหรือลากไฟล์มาวาง</div>
             <div class="d-sub">PNG • JPG • WEBP • หลายไฟล์พร้อมกัน</div>
@@ -1008,7 +1008,7 @@ select option{background:var(--ink2);}
         <div class="tts-line" id="ttsLineReader">กด 🔊 เพื่อเริ่มอ่าน</div>
       </div>
       <div class="tts-controls">
-        <select class="tts-speed" id="ttsSpeedSel" onchange="ttsSetSpeed(this.value)">
+        <select class="tts-speed" id="ttsSpeedSel" data-app-action="ttsSpeedChange">
           <option value="0.8">0.8×</option>
           <option value="1.0" selected>1.0×</option>
           <option value="1.25">1.25×</option>
@@ -1028,7 +1028,7 @@ select option{background:var(--ink2);}
       <span style="font-family:var(--fM);font-size:9px;color:var(--t3);white-space:nowrap;">ความเร็ว</span>
       <input type="range" id="ttsScrollSpeed" min="10" max="200" value="50" step="5"
         style="flex:1;accent-color:var(--jade);height:3px;cursor:pointer;"
-        oninput="ttsScrollSpeedChange(this.value)">
+        id="ttsScrollSpeed">
       <span class="tts-speed" id="ttsScrollSpeedVal" style="min-width:32px;text-align:center;">50</span>
     </div>
   </div>
@@ -1172,7 +1172,24 @@ function _bindAppActions() {
   // ttsScrollSpeed uses oninput — bind via JS too
   document.addEventListener('input', function(e) {
     if (e.target.id === 'ttsScrollSpeed') ttsScrollSpeedChange(e.target.value);
+    if (e.target.dataset.appAction === 'ttsSpeedChange') ttsSetSpeed(e.target.value);
+    if (e.target.dataset.appAction === 'customModel') S.customModel = e.target.value;
   });
+
+  // File input change
+  document.addEventListener('change', function(e) {
+    if (e.target.dataset.appAction === 'fileInput') handleFiles(e);
+    if (e.target.dataset.appAction === 'ttsSpeedChange') ttsSetSpeed(e.target.value);
+  });
+
+  // Global onerror for images via MutationObserver + event delegation
+  // Use error event on document (capture phase) to catch img errors
+  document.addEventListener('error', function(e) {
+    const el = e.target;
+    if (el.tagName !== 'IMG') return;
+    if (el.dataset.errHide) { el.style.display = 'none'; return; }
+    if (el.dataset.qiImg) { el.style.display = 'none'; return; }
+  }, true); // capture=true to catch img errors
 }
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault(); S.installEvt = e;
@@ -1343,7 +1360,7 @@ function buildModelGrid() {
   cw.innerHTML = `
     <label class="flabel">Custom Model ID</label>
     <input type="text" id="customModelId" placeholder="provider/model-name"
-      value="${esc(S.customModel)}" oninput="S.customModel=this.value">`;
+      value="${esc(S.customModel)}" data-app-action="customModel">`;
 
   body.appendChild(g);
   body.appendChild(cw);
@@ -2001,7 +2018,7 @@ function renderQueue() {
   const n = S.queue.length;
   list.innerHTML = S.queue.map((item, idx) => `
     <div class="qi ${item.status}" data-id="${item.id}">
-      <img class="qi-img" src="${esc(item.dataUrl || item.src)}" loading="lazy" onerror="this.style.display='none'">
+      <img class="qi-img" src="${esc(item.dataUrl || item.src)}" loading="lazy" data-qi-img="1">
       <div class="qi-foot">
         <div class="qi-move">
           <button class="qi-mv" data-q-action="up" data-qid="${item.id}" ${idx===0?'disabled':''} title="ขึ้น">▲</button>
@@ -2035,6 +2052,11 @@ function renderQueue() {
     if (act === 'rm')   removeFromQueue(qid);
   };
   list_el.addEventListener('click', list_el._qHandler);
+
+  // Bind onerror on queue images via JS (CSP-safe)
+  list_el.querySelectorAll('img[data-qi-img]').forEach(img => {
+    img.onerror = function() { this.style.display = 'none'; this.onerror = null; };
+  });
 }
 
 /* ── QUEUE REORDER ── */
@@ -2788,7 +2810,7 @@ function renderHistory() {
   }
   el.innerHTML = S.history.map((session, si) => {
     const thumbs = session.pages?.slice(0, 3).map(p =>
-      `<img class="hg-thumb" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">`
+      `<img class="hg-thumb" src="${esc(p.thumb || '')}" loading="lazy" data-err-hide="1">`
     ).join('') || '';
     const date = new Date(session.time).toLocaleDateString('th-TH', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
     const pgCount = session.pages?.length || 0;
@@ -2815,7 +2837,7 @@ function renderHistory() {
         ${(session.pages || []).map((p, pi) => `
           <div class="hr-row" data-action="openpage" data-si="${si}" data-pi="${pi}">
             <div class="hr-img-wrap">
-              <img class="hr-img" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">
+              <img class="hr-img" src="${esc(p.thumb || '')}" loading="lazy" data-err-hide="1">
               <span class="hr-pgnum">หน้า ${p.pageNum}</span>
             </div>
             <div class="hr-txt">${esc(p.result || '(ยังไม่แปล)')}</div>
@@ -2973,7 +2995,7 @@ function _renderChReader(doScroll = true) {
               data-si="${_cr.si}"
               data-pi="${pi}"
               src="${esc(p.thumb || '')}"
-              onerror="this.style.display='none'"
+              data-err-hide="1"
               style="display:block;width:100%;">
           </div>
           <div class="cr-page-txt" style="border-top:2px solid rgba(232,25,44,.3);padding:8px 12px;">
@@ -2983,7 +3005,7 @@ function _renderChReader(doScroll = true) {
     } else {
       return `
         <div class="cr-page" id="crpg-${pi}">
-          <img class="cr-page-img" src="${esc(p.thumb || '')}" onerror="this.style.display='none'" loading="lazy">
+          <img class="cr-page-img" src="${esc(p.thumb || '')}" loading="lazy" data-err-hide="1">
           <div class="cr-page-txt">
             <span class="cr-pgnum">— หน้า ${p.pageNum} —</span>${esc(p.result || '')}
           </div>
