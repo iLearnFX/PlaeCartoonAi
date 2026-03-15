@@ -293,6 +293,8 @@ select option{background:var(--ink2);}
 .tl-btn:hover::before{left:130%;}
 .tl-btn:active{transform:scale(.98);}
 .tl-btn:disabled{background:var(--ink3);color:var(--t3);box-shadow:none;cursor:not-allowed;}
+/* Allow clicks to reach the button even when children are clicked */
+.tl-btn span, .tl-btn *{ pointer-events:none; }
 .tl-btn.loading{background:linear-gradient(135deg,#6d28d9 0%,#4c1d95 100%);box-shadow:0 6px 28px rgba(109,40,217,.35);}
 
 /* TTS PLAYER BAR — อยู่ใน Chapter Reader เท่านั้น */
@@ -1099,6 +1101,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDrop();
   renderStatusBar();
   _updateNotifyBtn();
+  // Reset translate button state on load (in case it was stuck)
+  const tlBtn = document.getElementById('tlBtn');
+  if (tlBtn) { tlBtn.disabled = false; tlBtn.classList.remove('loading'); }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   _bindAppActions();
 });
@@ -2654,10 +2659,11 @@ function _autoScrollStop() {
   if (_scrollTimer) { cancelAnimationFrame(_scrollTimer); _scrollTimer = null; }
 }
 
-// Hook into ttsBarReader show/hide
+// Show scroll row when TTS starts — patch ttsStop to hide it
 var _origTtsStop = ttsStop;
 ttsStop = function() {
-  _autoScrollStop(); _scrollOn = false;
+  _autoScrollStop();
+  _scrollOn = false;
   var btn = document.getElementById('ttsScrollBtn');
   if (btn) btn.classList.remove('scroll-on');
   var row = document.getElementById('ttsScrollRow');
@@ -2665,11 +2671,12 @@ ttsStop = function() {
   _origTtsStop();
 };
 
-var _origTtsBeginPage = ttsBeginPage;
-ttsBeginPage = function() {
+// Show scroll row when a page starts playing
+var _origTtsLoadPage = _ttsLoadPage;
+_ttsLoadPage = function() {
   var row = document.getElementById('ttsScrollRow');
   if (row) row.classList.add('on');
-  _origTtsBeginPage();
+  _origTtsLoadPage();
 };
 
 
